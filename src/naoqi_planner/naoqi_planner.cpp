@@ -353,6 +353,12 @@ namespace naoqi_planner {
     if (w < 1e-4)
       w = 0;
 
+    // Switch to rotation-only behaviour
+    float max_angle_goal = 0.3;
+    if (fabs(angle_goal) > max_angle_goal)
+      v = 0;
+    
+
     _prev_v = v;
     _prev_w = w;
 

@@ -1,0 +1,3 @@
+<project name="pepper_navigation">
+  <depends buildtime="true" runtime="true" names="libnaoqi" />
+</project>

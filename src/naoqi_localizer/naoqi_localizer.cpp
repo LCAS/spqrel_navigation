@@ -25,7 +25,7 @@ namespace naoqi_localizer {
     _last_timer_slot=0;
     _laser_pose.setZero();
 
-  
+    _cycle_time_ms = 200;
   }
 
   void NAOqiLocalizer::initGUI(){
@@ -51,7 +51,7 @@ namespace naoqi_localizer {
 
   void NAOqiLocalizer::servicesMonitorThread(qi::AnyObject memory_service, qi::AnyObject motion_service) {
     while (!_stop_thread){
-      qi::SteadyClock::time_point time_start = qi::SteadyClock::now();
+      std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
       qi::AnyValue result =  motion_service.call<qi::AnyValue>("getRobotPosition", false);
       std::vector<float> robotpose = result.toList<float>();
       Eigen::Vector3f odom_pose(robotpose[0], robotpose[1], robotpose[2]);
@@ -84,11 +84,11 @@ namespace naoqi_localizer {
 
       memory_service.call<void>("insertData", "NAOqiLocalizer/RobotPose", robot_pose_vector);
       
-      qi::SteadyClock::time_point time_end = qi::SteadyClock::now();
-      qi::MilliSeconds ms = boost::chrono::duration_cast<qi::MilliSeconds>(time_end - time_start);
-      std::cerr << "Cycle " << qi::to_string(ms) << std::endl;
-    
-      usleep(200000);
+      std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
+      int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
+      std::cerr << "Cycle " << cycle_ms << " milliseconds" << std::endl;
+      if (cycle_ms < _cycle_time_ms)
+	usleep((_cycle_time_ms-cycle_ms)*1e3);
     }
     std::cout << "Localizer Monitor Thread finished." << std::endl;
 

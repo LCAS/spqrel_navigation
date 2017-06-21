@@ -7,9 +7,9 @@
 #include <libgen.h> 
 
 #include <qi/session.hpp>
-#include <qi/clock.hpp>
 
 #include <thread>
+#include <chrono>
 
 namespace naoqi_localizer {
 
@@ -83,6 +83,7 @@ namespace naoqi_localizer {
     std::thread _servicesMonitorThread;
     void servicesMonitorThread(qi::AnyObject memory_service, qi::AnyObject motion_service);
     std::atomic<bool> _stop_thread;
+    int _cycle_time_ms;
     /*
     //! handles the set-pose-estimate message from outside
     //! puts all partcles in the neighborhood of the pose in msg

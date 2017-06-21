@@ -107,8 +107,8 @@ namespace naoqi_sensor_utils {
 
   const float laser_max_range = 7.0;
 
-  Vector2fVector rawPointsToRobotFrame(Vector2fVector& rawPoints);
+  Vector2fVector rawPointsToRobotFrame(Vector2fVector& rawPoints, float max_range = laser_max_range);
 
-  Vector2fVector getLaser(qi::AnyObject memory_service);
+  Vector2fVector getLaser(qi::AnyObject memory_service, float max_range = laser_max_range);
 
 }

@@ -64,11 +64,8 @@ namespace srrg_core {
       _max_index=start_index;
     
     for (Eigen::Vector2i p: points) {
-      if (! output.inside(p.x(), p.y())) {
-	std::cerr << "Point not inside" << std::endl;
-	
+      if (! output.inside(p.x(), p.y())) 
 	continue;
-      }
       ++_max_index;
       _indices_map.at<int>(p.x(), p.y()) = _max_index;
       PathMapCell* cell_ptr= &output(p.x(),p.y());
@@ -76,7 +73,6 @@ namespace srrg_core {
       cell_ptr->distance = 0;
       _queue.push(cell_ptr);
     }
-    //std::cerr << "queue populated" <<_queue.size() << std::endl;
   }
   
   bool DistanceMapPathSearch::compute() {
@@ -87,7 +83,7 @@ namespace srrg_core {
       throw std::runtime_error("no indices_image selected");
 
     if (_queue.empty()){
-      return true;
+      throw std::runtime_error("empty queue, did you call init()?");
     }
     
     PathMap& output=*_output_path_map;

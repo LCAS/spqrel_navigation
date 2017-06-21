@@ -418,7 +418,6 @@ namespace srrg_core {
     
     return vector_eigen;
   }
-
   inline FloatVector toFloatVector3f(const Eigen::Matrix<float, 3, 1>& vector_eigen_){
     FloatVector float_vector;
     float_vector.resize(3);

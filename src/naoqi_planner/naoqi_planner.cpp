@@ -15,10 +15,13 @@ namespace naoqi_planner {
     _cycle_time_ms = 200;
     _restart = true;
 
+    _usable_range = 2.0;
+    
     _have_goal = false;
     _goal = Eigen::Vector2i(0,0);
     _robot_pose = Eigen::Vector3f(0.,0.,0.);
 
+    _move_enabled = true;
     _prev_v = 0.0; _prev_w = 0.0;
   }
 
@@ -65,6 +68,9 @@ namespace naoqi_planner {
 	break;
       std::cerr << "Switching view to cost map" << std::endl;
       _what_to_show = Cost;
+      break;
+    case 'p':
+      _move_enabled = !_move_enabled;
       break;
     case 'r':
       std::cerr << "Resetting" << std::endl;
@@ -192,6 +198,9 @@ namespace naoqi_planner {
   }
   
   void NAOqiPlanner::servicesMonitorThread(qi::AnyObject memory_service, qi::AnyObject motion_service) {
+    std::cerr << "Warning: disabling Pepper self collision protection" << std::endl;
+    motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", false);
+    
     while (!_stop_thread){
       std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
@@ -208,7 +217,7 @@ namespace naoqi_planner {
       
       
       //get laser
-      Vector2fVector laser_points = getLaser(memory_service);
+      Vector2fVector laser_points = getLaser(memory_service, _usable_range);
       /*Vector2iVector obstacle_points;
       for (size_t i=0; i<laserpoints.size(); i++){
 	Eigen::Vector2f lp=robot_pose_transform* laserpoints[i];
@@ -284,10 +293,15 @@ namespace naoqi_planner {
 
 	float linear_vel, angular_vel;
 	computeControlToWaypoint(linear_vel, angular_vel);
-	//apply vels
-	std::cerr << "Applying vels: " << linear_vel  << " " << angular_vel << std::endl;
-	//motion_service.call<void>("move", linear_vel,0,angular_vel);
-
+	if (_move_enabled){
+	  //apply vels
+	  std::cerr << "Applying vels: " << linear_vel  << " " << angular_vel << std::endl;
+	  motion_service.call<void>("move", linear_vel,0,angular_vel);
+	}else{
+	  _prev_v = 0;
+	  _prev_w = 0;
+	  motion_service.call<void>("stopMove");
+	}
 	
       } //else nothing to compute
       
@@ -304,6 +318,10 @@ namespace naoqi_planner {
 	usleep((_cycle_time_ms-cycle_ms)*1e3);
 
     }
+
+    std::cerr << "Enabling Pepper self collision protection" << std::endl;
+    motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", true);
+ 
     std::cout << "Planner Monitor Thread finished." << std::endl;
 
   }

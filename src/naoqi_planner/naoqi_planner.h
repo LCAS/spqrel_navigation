@@ -73,11 +73,13 @@ namespace naoqi_planner {
     int _max_distance_map_index;
     
     Vector2iVector _path;
+    bool _move_enabled;
     void computeControlToWaypoint(float& v, float& w);
     float _prev_v, _prev_w;
 
     DynamicMap _dyn_map;
-    
+
+    float _usable_range;
     bool _restart;
 
     bool _have_goal;

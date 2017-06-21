@@ -37,10 +37,11 @@ namespace srrg_core {
     
     virtual bool compute() override;
 
-    const FloatImage& distanceImage() const {return _distance_image;}
+    inline const FloatImage& distanceImage() const {return _distance_image;}
 
-    const IntImage& indicesMap() const {return _indices_map;}
-    
+    inline const IntImage& indicesMap() const {return _indices_map;}
+
+    inline int maxIndex() const {return _max_index;}
   protected:
     void fillQueueFromImage(); // fills the expansion queue from indices images and updates max_index
     

@@ -1,7 +1,6 @@
 #include "naoqi_planner.h"
 
 
-
 namespace naoqi_planner {
   using namespace naoqi_sensor_utils;
   
@@ -13,6 +12,7 @@ namespace naoqi_planner {
     _use_gui = false;
     _what_to_show = Map;
 
+    _cycle_time_ms = 200;
     _restart = true;
 
     _have_goal = false;
@@ -75,6 +75,7 @@ namespace naoqi_planner {
 	int occ_threshold = (1.0 - _occ_threshold) * 255;
 	int free_threshold = (1.0 - _free_threshold) * 255;
 	grayMap2indices(_indices_image, _map_image, occ_threshold, free_threshold);
+	_dyn_map.clearPoints();
       }
     default:;
     }
@@ -192,23 +193,23 @@ namespace naoqi_planner {
   
   void NAOqiPlanner::servicesMonitorThread(qi::AnyObject memory_service, qi::AnyObject motion_service) {
     while (!_stop_thread){
-      qi::SteadyClock::time_point time_start = qi::SteadyClock::now();
+      std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
       //get robot localization
       qi::AnyValue value = memory_service.call<qi::AnyValue>("getData", "NAOqiLocalizer/RobotPose");
       srrg_core::FloatVector robot_pose_floatvector = value.toList<float>();
-      _robot_pose = srrg_core::fromFloatVector3f(robot_pose_floatvector);
-      std::cerr << "Robot pose map: " << _robot_pose.transpose() << std::endl;
+      Eigen::Vector3f robot_pose_vector = srrg_core::fromFloatVector3f(robot_pose_floatvector);
+      std::cerr << "Robot pose map: " << robot_pose_vector.transpose() << std::endl;
+      
+      Eigen::Isometry2f robot_pose_transform=_map_origin_transform_inverse*v2t(robot_pose_vector);
+      _robot_pose = t2v(robot_pose_transform);
 
-      Eigen::Isometry2f robot_pose_transform=_map_origin_transform_inverse*v2t(_robot_pose);
-      Eigen::Vector3f robot_pose_vector=t2v(robot_pose_transform);
-
-      _robot_pose_image = world2grid(Eigen::Vector2f(robot_pose_vector.x(), robot_pose_vector.y()));
+      _robot_pose_image = world2grid(Eigen::Vector2f(_robot_pose.x(), _robot_pose.y()));
       
       
       //get laser
-      Vector2fVector laserpoints = getLaser(memory_service);
-      Vector2iVector obstacle_points;
+      Vector2fVector laser_points = getLaser(memory_service);
+      /*Vector2iVector obstacle_points;
       for (size_t i=0; i<laserpoints.size(); i++){
 	Eigen::Vector2f lp=robot_pose_transform* laserpoints[i];
 	int r = lp.x()*_map_inverse_resolution;
@@ -216,8 +217,8 @@ namespace naoqi_planner {
 	if (! _distance_map.inside(r,c))
 	  continue;
 	obstacle_points.push_back(Eigen::Vector2i(r,c));
-      }
-      
+	}*/
+
       //here I'll do something map + loc + laser + goal -> path
       
       if (_restart){
@@ -225,17 +226,41 @@ namespace naoqi_planner {
 	_dmap_calculator.setIndicesImage(_indices_image);
 	_dmap_calculator.setOutputPathMap(_distance_map);
 	_dmap_calculator.init();
+	_max_distance_map_index = _dmap_calculator.maxIndex();
+	_dmap_calculator.compute();
+	_distance_map_backup=_distance_map.data();
 	_restart = false;
-      }
-      _dmap_calculator.setPoints(obstacle_points);
+	
+      } 
+      std::chrono::steady_clock::time_point time_dmap_start = std::chrono::steady_clock::now();
+      _distance_map.data()=_distance_map_backup;
 
+      _dyn_map.setMapResolution(_map_resolution);
+      _dyn_map.setRobotPose(robot_pose_transform);
+      _dyn_map.setCurrentPoints(laser_points);
+      _dyn_map.compute();
+      Vector2iVector obstacle_points;
+      _dyn_map.getOccupiedCells(obstacle_points);
       
+      
+      _dmap_calculator.setPoints(obstacle_points, _max_distance_map_index);
       _dmap_calculator.compute();
-      _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
 
-      distances2cost(_cost_image, _distance_image, _robot_radius, _safety_region, _min_cost, _max_cost);
+      _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
+      distances2cost(_cost_image,
+		     _distance_image,
+		     _robot_radius,
+		     _safety_region,
+		     _min_cost,
+		     _max_cost);
+
+      std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
+      std::cerr << "DMapCalculator: "
+		<< std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << std::endl;
+      
 
       if (_have_goal){
+	std::chrono::steady_clock::time_point time_path_start = std::chrono::steady_clock::now();
 	_path_calculator.setMaxCost(_max_cost-1);
 	_path_calculator.setCostMap(_cost_image);
 	_path_calculator.setOutputPathMap(_path_map);
@@ -243,18 +268,17 @@ namespace naoqi_planner {
 	goals.push_back(_goal);
 	_path_calculator.goals() = goals;
 	_path_calculator.compute();
+	std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
+
+	std::cerr << "PathCalculator: "
+		  << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << std::endl;
 
 	_path.clear();
-
-
 	// Filling path
-	std::ofstream ofs ("path.dat", std::ofstream::out);
 	PathMapCell* current=&_path_map(_robot_pose_image.x(), _robot_pose_image.y());
 	while (current&& current->parent && current->parent!=current) {
 	  PathMapCell* parent=current->parent;
 	  _path.push_back(Eigen::Vector2i(current->r, current->c));
-	  ofs << current->r << current->c << std::endl;
-	  
 	  current = current->parent;
 	}
 
@@ -262,7 +286,7 @@ namespace naoqi_planner {
 	computeControlToWaypoint(linear_vel, angular_vel);
 	//apply vels
 	std::cerr << "Applying vels: " << linear_vel  << " " << angular_vel << std::endl;
-	motion_service.call<void>("move", linear_vel,0,angular_vel);
+	//motion_service.call<void>("move", linear_vel,0,angular_vel);
 
 	
       } //else nothing to compute
@@ -273,11 +297,12 @@ namespace naoqi_planner {
     
 
       
-      qi::SteadyClock::time_point time_end = qi::SteadyClock::now();
-      qi::MilliSeconds ms = boost::chrono::duration_cast<qi::MilliSeconds>(time_end - time_start);
-      std::cerr << "Cycle " << qi::to_string(ms) << std::endl;
-    
-      usleep(200000);
+      std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
+      int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
+      std::cerr << "Cycle " << cycle_ms << " milliseconds" << std::endl << std::endl;
+      if (cycle_ms < _cycle_time_ms)
+	usleep((_cycle_time_ms-cycle_ms)*1e3);
+
     }
     std::cout << "Planner Monitor Thread finished." << std::endl;
 
@@ -346,11 +371,16 @@ namespace naoqi_planner {
       F.y() = sin(angleF)*f;
     }
 
+    std::cerr << "Force: " << F.transpose() << std::endl;
+    
     v = (F.x() * T + _prev_v) / (1 + 2*b*T);
+    std::cerr << "V: " << v << std::endl;
+    
     if (v < 0)
       v = 0;
     w = (k_i *h * F.y() * T + _prev_w) / (1 + 2*b*k_i*T);
-    if (w < 1e-4)
+    std::cerr << "W: " << w << std::endl;
+    if (fabs(w) < 1e-4)
       w = 0;
 
     // Switch to rotation-only behaviour

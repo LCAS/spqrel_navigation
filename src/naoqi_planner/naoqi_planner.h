@@ -2,6 +2,7 @@
 
 #include "yaml_parser/simple_yaml_parser.h"
 #include "naoqi_sensor_utils/naoqi_sensor_utils.h"
+#include "dynamic_map.h"
 
 #include <libgen.h> 
 
@@ -19,7 +20,8 @@ namespace naoqi_planner {
   using namespace srrg_core;
 
   enum WhatToShow {Map, Distance, Cost};
-  
+
+ 
   class NAOqiPlanner {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -64,13 +66,17 @@ namespace naoqi_planner {
     FloatImage _distance_image;
     FloatImage _cost_image;
     PathMap _distance_map;
+    std::vector<PathMap::CellType, PathMap::AllocatorType> _distance_map_backup;
     PathMap _path_map;
     DistanceMapPathSearch _dmap_calculator;
     DijkstraPathSearch _path_calculator;
-
+    int _max_distance_map_index;
+    
     Vector2iVector _path;
     void computeControlToWaypoint(float& v, float& w);
     float _prev_v, _prev_w;
+
+    DynamicMap _dyn_map;
     
     bool _restart;
 
@@ -95,7 +101,9 @@ namespace naoqi_planner {
     std::thread _servicesMonitorThread;
     void servicesMonitorThread(qi::AnyObject memory_service, qi::AnyObject motion_service);
     std::atomic<bool> _stop_thread;
+    float _cycle_time_ms; 
 
+    
     //! GUI stuff
     bool _use_gui;
     WhatToShow _what_to_show;

@@ -1,6 +1,7 @@
 qi_create_lib(naoqi_planner_library
   SHARED
   naoqi_planner.cpp naoqi_planner.h
+  dynamic_map.cpp dynamic_map.h
   )
 qi_use_lib(naoqi_planner_library
   srrg_path_map_library

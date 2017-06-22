@@ -1,0 +1,216 @@
+#include "naoqi_planner_gui.h"
+
+namespace naoqi_planner_gui {
+
+
+  NAOqiPlannerGUI::NAOqiPlannerGUI(qi::SessionPtr session){
+    _session = session;
+
+    if (! _session)
+      throw std::runtime_error("Error: No memory service provided");
+
+    _cycle_time_ms = 200;
+
+    _usable_range = 2.0;
+    
+    _have_goal = false;
+    _goal = Eigen::Vector2i(0,0);
+    _robot_pose = Eigen::Vector3f(0.,0.,0.);
+
+    _move_enabled = true;
+    _path.clear();
+  }
+
+  void NAOqiPlannerGUI::initGUI(){
+    cv::namedWindow( "pepper_planner_gui", 0 );
+    cv::setMouseCallback( "pepper_planner_gui", &NAOqiPlannerGUI::onMouse, this );
+    std::cerr << "GUI initialized" << std::endl;
+  }
+
+  void NAOqiPlannerGUI::onMouse( int event, int x, int y, int, void* v){
+    NAOqiPlannerGUI* n=reinterpret_cast<NAOqiPlannerGUI*>(v);
+  
+    if( event == cv::EVENT_LBUTTONDOWN ) {
+      std::cerr << "Left Click!" << std::endl;
+      n->_goal = Eigen::Vector2i(y,x);
+      n->_have_goal = true;
+      std::cerr << "Setting goal: " << n->_goal.transpose() << std::endl;
+      FloatVector goal;
+      goal.push_back(y);
+      goal.push_back(x);
+      qi::AnyValue value = qi::AnyValue::from(goal);
+      n->_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Goal", value);
+    }
+  }
+
+  void NAOqiPlannerGUI::onGoalReached(){
+    _have_goal = false;
+    _path.clear();
+  }
+
+  void NAOqiPlannerGUI::subscribeServices(){
+    _memory_service = _session->service("ALMemory");
+
+    //subscribe to goal changes
+    _subscriber_goal_reached = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/GoalReached");
+    _signal_goal_reached_id = _subscriber_goal_reached.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlannerGUI::onGoalReached, this))));
+    
+    _stop_thread=false;
+    _servicesMonitorThread = std::thread(&NAOqiPlannerGUI::servicesMonitorThread, this);
+    std::cerr << "Planner GUI Services Monitor Thread launched." << std::endl;
+  }
+
+  void NAOqiPlannerGUI::unsubscribeServices(){
+    _subscriber_goal_reached.disconnect(_signal_goal_reached_id);
+    _stop_thread=true;
+    _servicesMonitorThread.join();
+  }
+
+  void NAOqiPlannerGUI::servicesMonitorThread() {
+    while (!_stop_thread){
+      std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
+    
+      qi::AnyValue value;
+
+      try {
+	//get robot localization
+	value = _memory_service.call<qi::AnyValue>("getData", "NAOqiLocalizer/RobotPose");
+	srrg_core::FloatVector robot_pose_floatvector = value.toList<float>();
+	Eigen::Vector3f robot_pose_vector = srrg_core::fromFloatVector3f(robot_pose_floatvector);
+	std::cerr << "Robot pose map: " << robot_pose_vector.transpose() << std::endl;
+	
+	Eigen::Isometry2f robot_pose_transform=_map_origin_transform_inverse*v2t(robot_pose_vector);
+	_robot_pose = t2v(robot_pose_transform);
+	
+	_robot_pose_image = world2grid(Eigen::Vector2f(_robot_pose.x(), _robot_pose.y()));
+      } catch (qi::FutureUserException) {
+	std::cerr << "NAOqiLocalizer/RobotPose not available" << std::endl;
+      }
+      //get laser
+      //Vector2fVector laser_points = getLaser(memory_service, _usable_range);
+
+      try{
+	//get path
+	value = _memory_service.call<qi::AnyValue>("getData", "NAOqiPlanner/Path");
+	srrg_core::IntVector path_vector = value.toList<int>();
+	_path.resize(path_vector.size()/2);
+	for (size_t i=0; i<_path.size(); i++)
+	  _path[i] = Eigen::Vector2i(path_vector[2*i], path_vector[2*i+1]);
+      } catch (qi::FutureUserException) {
+	std::cerr << "NAOqiPlanner/Path not available" << std::endl;
+      }
+      
+      handleGUIDisplay();
+      handleGUIInput();
+
+      std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
+      int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
+      std::cerr << "Cycle " << cycle_ms << " milliseconds" << std::endl << std::endl;
+      if (cycle_ms < _cycle_time_ms)
+	usleep((_cycle_time_ms-cycle_ms)*1e3);
+    
+    }
+  
+    std::cout << "Planner GUI Monitor Thread finished." << std::endl;
+  }
+
+
+
+  void NAOqiPlannerGUI::readMap(const std::string mapname){
+    std::cerr << "Reading map" << mapname << std::endl;
+  
+    // reading map info
+    SimpleYAMLParser parser;
+    parser.load(mapname);
+    std::cerr << "Dirname: " << dirname(strdup(mapname.c_str())) << std::endl;
+    
+    std::string map_image_name = parser.getValue("image");
+    _map_resolution = parser.getValueAsFloat("resolution");
+    _map_inverse_resolution = 1./_map_resolution;
+    _occ_threshold = parser.getValueAsFloat("occupied_thresh");
+    _free_threshold = parser.getValueAsFloat("free_thresh");
+    _map_origin = parser.getValueAsVector3f("origin");
+    _map_origin_transform_inverse = v2t(_map_origin).inverse();
+    
+    std::cerr << "MAP NAME: " << map_image_name << std::endl;
+    std::cerr << "RESOLUTION: " << _map_resolution << std::endl;
+    std::cerr << "ORIGIN: " << _map_origin.transpose() << std::endl;
+    std::cerr << "OCC THRESHOLD: " << _occ_threshold << std::endl;
+    std::cerr << "FREE THRESHOLD: " << _free_threshold << std::endl;
+      
+    std::string full_path_map_image = std::string(dirname(strdup(mapname.c_str())))+"/"+map_image_name;
+    std::cerr << "Opening image" << full_path_map_image << std::endl;
+  
+    _map_image = cv::imread(full_path_map_image, CV_LOAD_IMAGE_GRAYSCALE);
+    std::cerr << "Image read: (" << _map_image.rows << "x" << _map_image.cols << ")" << std::endl;
+
+    int occ_threshold = (1.0 - _occ_threshold) * 255;
+    int free_threshold = (1.0 - _free_threshold) * 255;
+    grayMap2indices(_indices_image, _map_image, occ_threshold, free_threshold);
+  }
+  
+
+
+
+
+  void NAOqiPlannerGUI::handleGUIDisplay() {
+    
+    FloatImage shown_image;
+    shown_image.create(_indices_image.rows, _indices_image.cols);
+    for (int r=0; r<_indices_image.rows; ++r) {
+      int* src_ptr=_indices_image.ptr<int>(r);
+      float* dest_ptr=shown_image.ptr<float>(r);
+      for (int c=0; c<_indices_image.cols; ++c, ++src_ptr, ++dest_ptr){
+	if (*src_ptr<-1)
+	  *dest_ptr = .5f;
+	else if (*src_ptr == -1)
+	  *dest_ptr = 1.f;
+	else
+	  *dest_ptr=0.f;
+      }
+    }
+    
+    // Drawing goal
+    if (_have_goal)
+      cv::circle(shown_image, cv::Point(_goal.y(), _goal.x()), 3, cv::Scalar(0.0f));
+
+    // Drawing current pose
+    cv::rectangle(shown_image,
+		  cv::Point(_robot_pose_image.y()+2, _robot_pose_image.x()-2),
+		  cv::Point(_robot_pose_image.y()-2, _robot_pose_image.x()+2),
+		  cv::Scalar(0.0f));
+
+    
+    //Draw path
+    if (_robot_pose_image.x()>=0 && _have_goal && _path.size()){
+      for (size_t i = 0; i <_path.size()-1; i++){
+	cv::line(shown_image,
+		 cv::Point(_path[i].y(), _path[i].x()),
+		 cv::Point(_path[i+1].y(), _path[i+1].x()),
+		 cv::Scalar(0.0f));
+	
+      }
+    }
+      
+    cv::imshow("pepper_planner_gui", shown_image);
+  }  
+
+
+  void NAOqiPlannerGUI::handleGUIInput(){
+    char key=cv::waitKey(10);
+    switch(key) {
+    case 'p':
+      _move_enabled = !_move_enabled;
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/MoveEnabled", _move_enabled);
+      break;
+    case 'r':
+      std::cerr << "Resetting" << std::endl;
+      _have_goal = false;
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/Reset", true);
+    default:;
+    }
+  }
+
+
+}
+

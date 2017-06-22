@@ -7,7 +7,6 @@
 #include <libgen.h> 
 
 #include <qi/session.hpp>
-#include <qi/clock.hpp>
 
 #include <thread>
 
@@ -20,7 +19,6 @@ namespace naoqi_planner {
   using namespace srrg_core;
 
   enum WhatToShow {Map, Distance, Cost};
-
  
   class NAOqiPlanner {
   public:
@@ -60,7 +58,9 @@ namespace naoqi_planner {
     }
     
     qi::SessionPtr _session;
-    
+    qi::AnyObject _memory_service;
+    qi::AnyObject _motion_service;
+
     UnsignedCharImage _map_image;
     IntImage _indices_image; 
     FloatImage _distance_image;
@@ -81,7 +81,8 @@ namespace naoqi_planner {
 
     float _usable_range;
     bool _restart;
-
+    void reset();
+    
     bool _have_goal;
     Eigen::Vector2i _goal;
     Eigen::Vector3f _robot_pose;
@@ -100,12 +101,24 @@ namespace naoqi_planner {
     float _robot_radius;
     float _safety_region;
 
+    //! Execution monitoring
     std::thread _servicesMonitorThread;
-    void servicesMonitorThread(qi::AnyObject memory_service, qi::AnyObject motion_service);
+    void servicesMonitorThread();
     std::atomic<bool> _stop_thread;
     float _cycle_time_ms; 
 
-    
+    // subscribers and publishers
+    qi::AnyObject _subscriber_goal;
+    qi::SignalLink _signal_goal_id;
+    void onGoal(qi::AnyValue value);
+    qi::AnyObject _subscriber_move_enabled;
+    qi::SignalLink _signal_move_enabled_id;
+    void onMoveEnabled(qi::AnyValue value);
+    qi::AnyObject _subscriber_reset;
+    qi::SignalLink _signal_reset_id;
+    void publishPath();
+    void publishGoalReached();
+
     //! GUI stuff
     bool _use_gui;
     WhatToShow _what_to_show;

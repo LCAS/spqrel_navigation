@@ -45,6 +45,18 @@ namespace naoqi_planner {
     
   }
 
+  void NAOqiPlanner::reset(){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> RESET <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+
+    _restart = true;
+    _have_goal = false;
+    //Removing obstacles
+    int occ_threshold = (1.0 - _occ_threshold) * 255;
+    int free_threshold = (1.0 - _free_threshold) * 255;
+    grayMap2indices(_indices_image, _map_image, occ_threshold, free_threshold);
+    _dyn_map.clearPoints();
+  }
+  
   void NAOqiPlanner::handleGUIInput(){
     if (! _use_gui)
       return;
@@ -74,15 +86,7 @@ namespace naoqi_planner {
       break;
     case 'r':
       std::cerr << "Resetting" << std::endl;
-      _restart = true;
-      _have_goal = false;
-      //Removing obstacles
-      {
-	int occ_threshold = (1.0 - _occ_threshold) * 255;
-	int free_threshold = (1.0 - _free_threshold) * 255;
-	grayMap2indices(_indices_image, _map_image, occ_threshold, free_threshold);
-	_dyn_map.clearPoints();
-      }
+      reset();
     default:;
     }
   }
@@ -182,30 +186,68 @@ namespace naoqi_planner {
     grayMap2indices(_indices_image, _map_image, occ_threshold, free_threshold);
   }
 
+  void NAOqiPlanner::onGoal(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> GOAL CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    srrg_core::FloatVector goal = value.toList<float>();
+    if (goal.size() != 2){
+      std::cerr << "not a valid goal" << std::endl;
+      return;
+    }
 
+    _goal = Eigen::Vector2i(goal[0],goal[1]);
+    _have_goal = true;
+  }
+
+  void NAOqiPlanner::onMoveEnabled(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> Move Enabled CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    _move_enabled = value.as<bool>();
+    if (_move_enabled){
+      std::cerr << "Move enabled" << std::endl;
+    } else {
+      std::cerr << "Move disabled" << std::endl;
+    }
+  }
+
+  
   void NAOqiPlanner::subscribeServices(){
-    qi::AnyObject memory_service = _session->service("ALMemory");
-    qi::AnyObject motion_service = _session->service("ALMotion");
+    _memory_service = _session->service("ALMemory");
+    _motion_service = _session->service("ALMotion");
+
+    //subscribe to goal changes
+    _subscriber_goal = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Goal");
+    _signal_goal_id = _subscriber_goal.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::onGoal, this, _1))));
+
+    //subscribe to move enabled
+    _subscriber_move_enabled = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/MoveEnabled");
+    _signal_move_enabled_id = _subscriber_move_enabled.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::onMoveEnabled, this, _1))));
+    
+    //subscribe to reset
+    _subscriber_reset = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Reset");
+    _signal_reset_id = _subscriber_reset.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::reset, this))));
+    
+
     
     _stop_thread=false;
-    _servicesMonitorThread = std::thread(&NAOqiPlanner::servicesMonitorThread, this, memory_service, motion_service);
+    _servicesMonitorThread = std::thread(&NAOqiPlanner::servicesMonitorThread, this);
     std::cerr << "Planner Services Monitor Thread launched." << std::endl;
   }
 
   void NAOqiPlanner::unsubscribeServices(){
+    _subscriber_goal.disconnect(_signal_goal_id);
+    _subscriber_move_enabled.disconnect(_signal_move_enabled_id);
     _stop_thread=true;
     _servicesMonitorThread.join();
   }
   
-  void NAOqiPlanner::servicesMonitorThread(qi::AnyObject memory_service, qi::AnyObject motion_service) {
+  void NAOqiPlanner::servicesMonitorThread() {
     std::cerr << "Warning: disabling Pepper self collision protection" << std::endl;
-    motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", false);
+    _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", false);
     
     while (!_stop_thread){
       std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
       //get robot localization
-      qi::AnyValue value = memory_service.call<qi::AnyValue>("getData", "NAOqiLocalizer/RobotPose");
+      qi::AnyValue value = _memory_service.call<qi::AnyValue>("getData", "NAOqiLocalizer/RobotPose");
       srrg_core::FloatVector robot_pose_floatvector = value.toList<float>();
       Eigen::Vector3f robot_pose_vector = srrg_core::fromFloatVector3f(robot_pose_floatvector);
       std::cerr << "Robot pose map: " << robot_pose_vector.transpose() << std::endl;
@@ -217,7 +259,7 @@ namespace naoqi_planner {
       
       
       //get laser
-      Vector2fVector laser_points = getLaser(memory_service, _usable_range);
+      Vector2fVector laser_points = getLaser(_memory_service, _usable_range);
       /*Vector2iVector obstacle_points;
       for (size_t i=0; i<laserpoints.size(); i++){
 	Eigen::Vector2f lp=robot_pose_transform* laserpoints[i];
@@ -291,16 +333,18 @@ namespace naoqi_planner {
 	  current = current->parent;
 	}
 
+	publishPath();
+	
 	float linear_vel, angular_vel;
 	computeControlToWaypoint(linear_vel, angular_vel);
 	if (_move_enabled){
 	  //apply vels
 	  std::cerr << "Applying vels: " << linear_vel  << " " << angular_vel << std::endl;
-	  motion_service.call<void>("move", linear_vel,0,angular_vel);
+	  _motion_service.call<void>("move", linear_vel,0,angular_vel);
 	}else{
 	  _prev_v = 0;
 	  _prev_w = 0;
-	  motion_service.call<void>("stopMove");
+	  _motion_service.call<void>("stopMove");
 	}
 	
       } //else nothing to compute
@@ -320,7 +364,7 @@ namespace naoqi_planner {
     }
 
     std::cerr << "Enabling Pepper self collision protection" << std::endl;
-    motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", true);
+    _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", true);
  
     std::cout << "Planner Monitor Thread finished." << std::endl;
 
@@ -356,15 +400,16 @@ namespace naoqi_planner {
     float angle_goal = normalize(atan2(distance_goal.y(),distance_goal.x()) - _robot_pose.z());
     float goal_distance_threshold = 0.3;
     if (distance_goal.norm() < goal_distance_threshold){
-      std::cerr << ">>>>>>>>>>Arrived to goal: " << nextwp.transpose() << std::endl;
+      std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to goal: " << nextwp.transpose() << std::endl;
       if (isLastWp){
-	std::cerr << ">>>>>>>>>>Arrived to last goal" << std::endl;
+	std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to last goal" << std::endl;
 	v = 0.0;
 	w = 0.0;
 	
 	_prev_v = v;
 	_prev_w = w;
 	_have_goal = false;
+	publishGoalReached();
 	return;
       }
     }else {
@@ -414,7 +459,21 @@ namespace naoqi_planner {
 
 
   
+  void NAOqiPlanner::publishPath() {
+    IntVector path_vector;
+    if (_path.size()){
+      path_vector.resize(_path.size()*2);
+      for (size_t i=0; i<_path.size(); i++){
+	path_vector[2*i] = _path[i].x();
+	path_vector[2*i+1] = _path[i].y();
+      }
+      
+      _memory_service.call<void>("insertData", "NAOqiPlanner/Path", path_vector);
+    }
+  }
 
-  
+  void NAOqiPlanner::publishGoalReached(){
+    _memory_service.call<void>("raiseEvent", "NAOqiPlanner/GoalReached", true);
+  }
 
 }

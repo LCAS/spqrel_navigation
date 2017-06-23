@@ -16,7 +16,3 @@ qi_stage_lib(naoqi_localizer_library)
 
 qi_create_bin(pepper_localizer pepper_localizer.cpp)
 qi_use_lib(pepper_localizer ALCOMMON ALPROXIES naoqi_localizer_library)
-
-
-qi_create_bin(pepper_localizer_viewer pepper_localizer_viewer.cpp)
-qi_use_lib(pepper_localizer_viewer ALCOMMON ALPROXIES)

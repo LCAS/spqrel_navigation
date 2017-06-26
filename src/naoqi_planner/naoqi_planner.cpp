@@ -135,9 +135,6 @@ namespace naoqi_planner {
 	break;
       }
       
-      //cv::namedWindow("indices_img", 0);
-      //cv::imshow("indices_img", _indices_image);
-
       // Drawing goal
       if (_have_goal)
 	cv::circle(shown_image, cv::Point(_goal.y(), _goal.x()), 3, cv::Scalar(0.0f));
@@ -161,6 +158,14 @@ namespace naoqi_planner {
 	  current = current->parent;
 	}
       }
+
+      char buf[1024];
+      sprintf(buf, " MoveEnabled: %d", _move_enabled);
+      cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+      sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
+      cv::putText(shown_image, buf, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+      sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
+      cv::putText(shown_image, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
 
       
       cv::imshow("pepper_planner", shown_image);

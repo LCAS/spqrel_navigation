@@ -73,7 +73,7 @@ namespace naoqi_planner {
     int _max_distance_map_index;
     
     Vector2iVector _path;
-    bool _move_enabled;
+    bool _move_enabled, _collision_protection_enabled, _collision_protection_desired;
     void computeControlToWaypoint(float& v, float& w);
     float _prev_v, _prev_w;
 
@@ -102,10 +102,12 @@ namespace naoqi_planner {
     float _safety_region;
 
     //! Execution monitoring
+    void setExternalCollisionProtectionEnabled(bool value);
     std::thread _servicesMonitorThread;
     void servicesMonitorThread();
     std::atomic<bool> _stop_thread;
     float _cycle_time_ms; 
+    void cancelGoal();
 
     // subscribers and publishers
     qi::AnyObject _subscriber_goal;

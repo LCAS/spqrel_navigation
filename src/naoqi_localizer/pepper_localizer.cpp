@@ -30,14 +30,14 @@ void startLocalizerFromParameters(NAOqiLocalizer* localizer, po::variables_map& 
   std::cerr << "initial_pose_x: " << initial_pose_x << std::endl;
   double initial_pose_y = vm["initial_pose_y"].as<double>();
   std::cerr << "initial_pose_y: " << initial_pose_y << std::endl;
-  double initial_pose_z = vm["initial_pose_z"].as<double>();
-  std::cerr << "initial_pose_z: " << initial_pose_z << std::endl;
+  double initial_pose_theta = vm["initial_pose_theta"].as<double>();
+  std::cerr << "initial_pose_theta: " << initial_pose_theta << std::endl;
 
   localizer->init(particles, distance_threshold, 0.2, min_weight);
   if (use_gui)
     localizer->initGUI();
   localizer->setParticleResetting(dynamic_restart);
-  localizer->setInitialPose(initial_pose_x,initial_pose_y,initial_pose_z);
+  localizer->setInitialPose(initial_pose_x,initial_pose_y,initial_pose_theta);
 }
 
 
@@ -57,7 +57,7 @@ int main(int argc, char **argv){
     ("use_gui", po::value<bool>()->default_value(false), "use_gui.")
     ("initial_pose_x", po::value<double>()->default_value(0.0), "initial_pose_x.")
     ("initial_pose_y", po::value<double>()->default_value(0.0), "initial_pose_y.")
-    ("initial_pose_z", po::value<double>()->default_value(0.0), "initial_pose_z.")
+    ("initial_pose_theta", po::value<double>()->default_value(0.0), "initial_pose_theta.")
     ;
   
   po::variables_map vm;

@@ -157,10 +157,10 @@ namespace naoqi_localizer {
       char buf[1024];
       sprintf(buf, " SetPose: %d", _set_pose);
       cv::putText(img, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
-      sprintf(buf, " DynamicRestart: %d", particleResetting());
-      cv::putText(img, buf, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
-      sprintf(buf, " Latency/cycle: %f [ms]", cycleLatency());
-      cv::putText(img, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
+      //sprintf(buf, " DynamicRestart: %d", particleResetting());
+      //cv::putText(img, buf, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
+      //sprintf(buf, " Latency/cycle: %f [ms]", cycleLatency());
+      //cv::putText(img, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
   
       cv::imshow("pepper_localizer", img);
     }  

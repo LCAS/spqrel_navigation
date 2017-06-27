@@ -22,6 +22,8 @@ namespace naoqi_planner {
     _robot_pose = Eigen::Vector3f(0.,0.,0.);
 
     _move_enabled = true;
+    _collision_protection_enabled = true; _collision_protection_desired = true;
+    
     _prev_v = 0.0; _prev_w = 0.0;
   }
 
@@ -49,7 +51,7 @@ namespace naoqi_planner {
     std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> RESET <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
 
     _restart = true;
-    _have_goal = false;
+    cancelGoal();
     //Removing obstacles
     int occ_threshold = (1.0 - _occ_threshold) * 255;
     int free_threshold = (1.0 - _free_threshold) * 255;
@@ -63,6 +65,15 @@ namespace naoqi_planner {
 
     char key=cv::waitKey(10);
     switch(key) {
+    case 'h':
+      std::cout << "m: map mode" << std::endl;
+      std::cout << "d: distance map" << std::endl;
+      std::cout << "c: cost map" << std::endl;
+      std::cout << "p: enable/disable motion" << std::endl;
+      std::cout << "r: reset distance/cost map and remove the goal" << std::endl <<
+              "   (can be used for emergency stop)" << std::endl;
+      std::cout << "o: enable/disable external collision protection" << std::endl;
+	break;
     case 'm':
       if (_what_to_show == Map)
 	break;
@@ -81,12 +92,16 @@ namespace naoqi_planner {
       std::cerr << "Switching view to cost map" << std::endl;
       _what_to_show = Cost;
       break;
-    case 'p':
+    case 'p':    
       _move_enabled = !_move_enabled;
+      std::cerr << "Move enabled: " << _move_enabled << std::endl;
       break;
     case 'r':
       std::cerr << "Resetting" << std::endl;
       reset();
+    case 'o':
+      _collision_protection_desired = ! _collision_protection_desired;
+      std::cerr << "External Collision Protection Desired: " << _collision_protection_desired << std::endl;
     default:;
     }
   }
@@ -120,9 +135,6 @@ namespace naoqi_planner {
 	break;
       }
       
-      //cv::namedWindow("indices_img", 0);
-      //cv::imshow("indices_img", _indices_image);
-
       // Drawing goal
       if (_have_goal)
 	cv::circle(shown_image, cv::Point(_goal.y(), _goal.x()), 3, cv::Scalar(0.0f));
@@ -146,6 +158,14 @@ namespace naoqi_planner {
 	  current = current->parent;
 	}
       }
+
+      char buf[1024];
+      sprintf(buf, " MoveEnabled: %d", _move_enabled);
+      cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+      sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
+      cv::putText(shown_image, buf, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+      sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
+      cv::putText(shown_image, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
 
       
       cv::imshow("pepper_planner", shown_image);
@@ -225,7 +245,7 @@ namespace naoqi_planner {
     _subscriber_reset = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Reset");
     _signal_reset_id = _subscriber_reset.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::reset, this))));
     
-
+    setExternalCollisionProtectionEnabled(true);
     
     _stop_thread=false;
     _servicesMonitorThread = std::thread(&NAOqiPlanner::servicesMonitorThread, this);
@@ -239,9 +259,22 @@ namespace naoqi_planner {
     _servicesMonitorThread.join();
   }
   
-  void NAOqiPlanner::servicesMonitorThread() {
+
+  void NAOqiPlanner::cancelGoal() {
+    _have_goal = false;
+    // stop the robot
+    _motion_service.call<void>("stopMove");
+    setExternalCollisionProtectionEnabled(true);
+  }
+
+  void NAOqiPlanner::setExternalCollisionProtectionEnabled(bool value) {
     std::cerr << "Warning: disabling Pepper self collision protection" << std::endl;
-    _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", false);
+    _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", value);
+    _collision_protection_enabled = value;
+  }
+
+  void NAOqiPlanner::servicesMonitorThread() {
+
     
     while (!_stop_thread){
       std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
@@ -346,6 +379,11 @@ namespace naoqi_planner {
 	float linear_vel, angular_vel;
 	computeControlToWaypoint(linear_vel, angular_vel);
 	if (_move_enabled){
+
+      if (_collision_protection_desired != _collision_protection_enabled) {
+        setExternalCollisionProtectionEnabled(_collision_protection_desired); 
+      }
+
 	  //apply vels
 	  std::cerr << "Applying vels: " << linear_vel  << " " << angular_vel << std::endl;
 	  _motion_service.call<void>("move", linear_vel,0,angular_vel);
@@ -353,29 +391,31 @@ namespace naoqi_planner {
 	  _prev_v = 0;
 	  _prev_w = 0;
 	  _motion_service.call<void>("stopMove");
-	}
+      // we are not controlling the robot, set collision avoidance
+      setExternalCollisionProtectionEnabled(true);
+	} // _move_enabled
 	
-      } //else nothing to compute
+      } // _have_goal //else nothing to compute
       
+      
+
       handleGUIDisplay();
     
       handleGUIInput();
     
-
-      
       std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
       int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
       std::cerr << "Cycle " << cycle_ms << " milliseconds" << std::endl << std::endl;
       if (cycle_ms < _cycle_time_ms)
-	usleep((_cycle_time_ms-cycle_ms)*1e3);
-
-//    if (!_have_goal) sleep 1 sec
+        usleep((_cycle_time_ms-cycle_ms)*1e3);
 
 
-    }
+      if (!_have_goal) // sleep 1 sec
+        usleep(1e6);
 
-    std::cerr << "Enabling Pepper self collision protection" << std::endl;
-    _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", true);
+    } // main while
+
+    setExternalCollisionProtectionEnabled(true);
  
     std::cout << "Planner Monitor Thread finished." << std::endl;
 
@@ -411,17 +451,17 @@ namespace naoqi_planner {
     float angle_goal = normalize(atan2(distance_goal.y(),distance_goal.x()) - _robot_pose.z());
     float goal_distance_threshold = 0.3;
     if (distance_goal.norm() < goal_distance_threshold){
-      std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to goal: " << nextwp.transpose() << std::endl;
+      // std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to goal: " << nextwp.transpose() << std::endl;
       if (isLastWp){
-	std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to last goal" << std::endl;
-	v = 0.0;
-	w = 0.0;
-	
-	_prev_v = v;
-	_prev_w = w;
-	_have_goal = false;
-	publishGoalReached();
-	return;
+        std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to last goal" << std::endl;
+        v = 0.0;
+        w = 0.0;
+
+        _prev_v = v;
+        _prev_w = w;
+        cancelGoal();
+        publishGoalReached();
+        return;
       }
     }else {
       std::cerr << "Distance to goal: " << distance_goal.norm() << std::endl;

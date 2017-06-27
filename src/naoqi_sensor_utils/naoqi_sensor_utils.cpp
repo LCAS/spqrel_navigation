@@ -70,7 +70,17 @@ namespace naoqi_sensor_utils {
   Vector2fVector getLaser(qi::AnyObject memory_service, float max_range){
     std::vector<std::string> laserKeysVector(laserMemoryKeys, std::end(laserMemoryKeys)); 
     qi::AnyValue readings = memory_service.call<qi::AnyValue>("getListData", laserKeysVector);
-    std::vector<float> floatReadings = readings.toList<float>();
+
+    std::vector<float> floatReadings;
+    try {
+        floatReadings = readings.toList<float>();
+    }
+    catch (std::runtime_error e) {
+        // std::cerr << "runtime error catched!!!" << std::endl;
+        Vector2fVector points;
+        return points;
+    }
+
     //Preparing XY pairs
     Vector2fVector points(floatReadings.size()/2);
     for (size_t i = 0; i < floatReadings.size()-1; ){

@@ -248,6 +248,7 @@ namespace naoqi_planner {
 
       //get robot localization
       qi::AnyValue value = _memory_service.call<qi::AnyValue>("getData", "NAOqiLocalizer/RobotPose");
+
       srrg_core::FloatVector robot_pose_floatvector = value.toList<float>();
       Eigen::Vector3f robot_pose_vector = srrg_core::fromFloatVector3f(robot_pose_floatvector);
       std::cerr << "Robot pose map: " << robot_pose_vector.transpose() << std::endl;
@@ -256,7 +257,6 @@ namespace naoqi_planner {
       _robot_pose = t2v(robot_pose_transform);
 
       _robot_pose_image = world2grid(Eigen::Vector2f(_robot_pose.x(), _robot_pose.y()));
-      
       
       //get laser
       Vector2fVector laser_points = getLaser(_memory_service, _usable_range);
@@ -269,6 +269,7 @@ namespace naoqi_planner {
 	  continue;
 	obstacle_points.push_back(Eigen::Vector2i(r,c));
 	}*/
+
 
       //here I'll do something map + loc + laser + goal -> path
       
@@ -286,29 +287,36 @@ namespace naoqi_planner {
       std::chrono::steady_clock::time_point time_dmap_start = std::chrono::steady_clock::now();
       _distance_map.data()=_distance_map_backup;
 
-      _dyn_map.setMapResolution(_map_resolution);
-      _dyn_map.setRobotPose(robot_pose_transform);
-      _dyn_map.setCurrentPoints(laser_points);
-      _dyn_map.compute();
-      Vector2iVector obstacle_points;
-      _dyn_map.getOccupiedCells(obstacle_points);
-      
-      
-      _dmap_calculator.setPoints(obstacle_points, _max_distance_map_index);
-      _dmap_calculator.compute();
+      if (laser_points.size()>0) {
+
+          std::cerr << "WARNING: laser data not available." << std::endl;
+          _dyn_map.setMapResolution(_map_resolution);
+          _dyn_map.setRobotPose(robot_pose_transform);
+          _dyn_map.setCurrentPoints(laser_points);
+          _dyn_map.compute();
+          Vector2iVector obstacle_points;
+          _dyn_map.getOccupiedCells(obstacle_points);
+          
+          
+          _dmap_calculator.setPoints(obstacle_points, _max_distance_map_index);
+          _dmap_calculator.compute();
+
+        }
 
       _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
       distances2cost(_cost_image,
-		     _distance_image,
-		     _robot_radius,
-		     _safety_region,
-		     _min_cost,
-		     _max_cost);
+	         _distance_image,
+	         _robot_radius,
+	         _safety_region,
+	         _min_cost,
+	         _max_cost);
 
       std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
       std::cerr << "DMapCalculator: "
-		<< std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << std::endl;
+	    << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << std::endl;
       
+
+
 
       if (_have_goal){
 	std::chrono::steady_clock::time_point time_path_start = std::chrono::steady_clock::now();
@@ -360,6 +368,9 @@ namespace naoqi_planner {
       std::cerr << "Cycle " << cycle_ms << " milliseconds" << std::endl << std::endl;
       if (cycle_ms < _cycle_time_ms)
 	usleep((_cycle_time_ms-cycle_ms)*1e3);
+
+//    if (!_have_goal) sleep 1 sec
+
 
     }
 

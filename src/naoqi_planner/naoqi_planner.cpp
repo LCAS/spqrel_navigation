@@ -410,8 +410,8 @@ namespace naoqi_planner {
         usleep((_cycle_time_ms-cycle_ms)*1e3);
 
 
-      if (!_have_goal) // sleep 1 sec
-        usleep(1e6);
+     // if (!_have_goal) // sleep 1 sec
+     //   usleep(1e6);
 
     } // main while
 

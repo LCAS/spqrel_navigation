@@ -37,7 +37,6 @@ def main():
     memory_service  = session.service("ALMemory")
 
     key = "NAOqiLocalizer/RobotPose"
-    #pose = [14.0, 2.2, 0.0]
     memory_service.insertData(key,args.pose)
 
     print "Write ",key," = ",args.pose

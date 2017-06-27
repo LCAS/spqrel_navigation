@@ -201,6 +201,15 @@ namespace naoqi_planner {
     _map_image = cv::imread(full_path_map_image, CV_LOAD_IMAGE_GRAYSCALE);
     std::cerr << "Image read: (" << _map_image.rows << "x" << _map_image.cols << ")" << std::endl;
 
+    // _map_origin: reference system bottom-left, X right, Y up  (values read from yaml file) (ROS convention)
+    // _image_map_origin: image reference system top-left, X down, Y right (opencv convention)
+
+    // transform from _map_origin to _image_map_origin
+    Eigen::Vector3f map_to_image(0,_map_image.rows*_map_resolution,-M_PI/2);
+    Eigen::Isometry2f tf = v2t(_map_origin) * v2t(map_to_image);
+    _image_map_origin = t2v(tf);
+    _image_map_origin_transform_inverse = v2t(_image_map_origin).inverse();;
+
     int occ_threshold = (1.0 - _occ_threshold) * 255;
     int free_threshold = (1.0 - _free_threshold) * 255;
     grayMap2indices(_indices_image, _map_image, occ_threshold, free_threshold);
@@ -214,7 +223,16 @@ namespace naoqi_planner {
       return;
     }
 
-    _goal = Eigen::Vector2i(goal[0],goal[1]);
+    // we receive the goal in world coordinates [m]
+
+    srrg_core::FloatVector igoal; // image coordinates
+
+    Eigen::Vector3f vgoal(goal[0], goal[1], 0);
+
+    Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(vgoal);
+
+    _goal = world2grid(Eigen::Vector2f(goal_transform.translation().x(), goal_transform.translation().y()));
+
     _have_goal = true;
   }
 
@@ -284,12 +302,17 @@ namespace naoqi_planner {
 
       srrg_core::FloatVector robot_pose_floatvector = value.toList<float>();
       Eigen::Vector3f robot_pose_vector = srrg_core::fromFloatVector3f(robot_pose_floatvector);
-      std::cerr << "Robot pose map: " << robot_pose_vector.transpose() << std::endl;
+      std::cerr << "Robot pose: " << robot_pose_vector.transpose() << std::endl;
       
-      Eigen::Isometry2f robot_pose_transform=_map_origin_transform_inverse*v2t(robot_pose_vector);
-      _robot_pose = t2v(robot_pose_transform);
+      Eigen::Isometry2f robot_pose_transform=_image_map_origin_transform_inverse*v2t(robot_pose_vector);
+      _robot_pose = t2v(robot_pose_transform); // image coordinates
+
+
+      std::cerr << "Image pose [m]: " << _robot_pose.transpose() << std::endl;
 
       _robot_pose_image = world2grid(Eigen::Vector2f(_robot_pose.x(), _robot_pose.y()));
+
+      std::cerr << "Image pose [pixel]: " << _robot_pose_image.transpose() << std::endl;
       
       //get laser
       Vector2fVector laser_points = getLaser(_memory_service, _usable_range);

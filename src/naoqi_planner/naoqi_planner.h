@@ -88,8 +88,10 @@ namespace naoqi_planner {
     Eigen::Vector3f _robot_pose;
     Eigen::Vector2i _robot_pose_image;
     
-    Eigen::Vector3f _map_origin;    //< world coordinates of the upper left pixel
+    Eigen::Vector3f _map_origin;    //< world coordinates of the bottom left pixel 
+    Eigen::Vector3f _image_map_origin;    //< world coordinates of the upper left pixel 
     Eigen::Isometry2f _map_origin_transform_inverse;
+    Eigen::Isometry2f _image_map_origin_transform_inverse;
     float _map_resolution;
     float _map_inverse_resolution;
     float _occ_threshold;

@@ -60,7 +60,8 @@ namespace naoqi_localizer {
     float _forced_max_range; //< max range to use in localization
     float _squared_endpoint_distance; //< max distance betweem endpoints in the laser. The ones that are closer are suppressed
 
-    Eigen::Vector3f _map_origin;    //< world coordinates of the upper left pixel 
+    Eigen::Vector3f _map_origin;    //< world coordinates of the bottom left pixel 
+    Eigen::Vector3f _image_map_origin;    //< world coordinates of the upper left pixel 
   
     //! converts a range scan into a vector of regularized endpoints
     //! @param endpoints: a vector2fvector containing the cartesian 

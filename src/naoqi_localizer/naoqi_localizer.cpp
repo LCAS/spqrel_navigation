@@ -20,6 +20,7 @@ namespace naoqi_localizer {
     _set_pose = false;
     _use_gui=false;
     _map_origin.setZero();
+    _image_map_origin.setZero();
 
     _timers.resize(10);
     _last_timer_slot=0;
@@ -74,8 +75,8 @@ namespace naoqi_localizer {
       _restarted=false;
     
       handleGUIInput();
-    
-      Eigen::Isometry2f origin=v2t(_map_origin);
+
+      Eigen::Isometry2f origin=v2t(_image_map_origin);
       Eigen::Isometry2f robot_transform=origin*v2t(_mean);
       Eigen::Vector3f robot_pose=t2v(robot_transform);
 
@@ -184,7 +185,7 @@ namespace naoqi_localizer {
 	   new_pose.y(),
 	   new_pose.z());
   
-    Eigen::Isometry2f inverse_origin=v2t(_map_origin).inverse();
+    Eigen::Isometry2f inverse_origin=v2t(_image_map_origin).inverse();
     Eigen::Isometry2f global_pose=v2t(new_pose);
     Eigen::Vector3f map_pose=t2v(inverse_origin*global_pose);
     setPose(map_pose);
@@ -225,6 +226,14 @@ namespace naoqi_localizer {
     //setMap(map_image, res, 10, 230);
     setMap(map_image, res, occupied_threshold, free_threshold);
     _map_origin=new_origin;
+
+    // _map_origin: reference system bottom-left, X right, Y up  (values read from yaml file) (ROS convention)
+    // _image_map_origin: image reference system top-left, X down, Y right (opencv convention)
+
+    // transform from _map_origin to _image_map_origin
+    Eigen::Vector3f map_to_image(0,map_image.rows*res,-M_PI/2);
+    Eigen::Isometry2f tf = v2t(_map_origin) * v2t(map_to_image);
+    _image_map_origin = t2v(tf);
 
     _restarted=true;
   }

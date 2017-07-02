@@ -135,13 +135,18 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${SPQREL_NAV_SRC}
   ${SPQREL_NAV_SRC}/srrg_localizer2d
+  ${SPQREL_NAV_SRC}/../ros
 )
 
 
 ## Declare a C++ library
-# add_library(srrg_localizer2d_ros
-#   src/${PROJECT_NAME}/srrg_localizer2d_ros.cpp
-# )
+
+add_library(srrg_path_map
+  ${SPQREL_NAV_SRC}/srrg_system_utils/system_utils.cpp
+  ${SPQREL_NAV_SRC}/srrg_path_map/base_path_search.cpp
+  ${SPQREL_NAV_SRC}/srrg_path_map/distance_map_path_search.cpp
+  ${SPQREL_NAV_SRC}/srrg_path_map/path_map.cpp
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -152,12 +157,8 @@ include_directories(
 add_executable(srrg_localizer2d_node 
   src/ros_localizer.cpp
   src/srrg_localizer2d_node.cpp
-  ${SPQREL_NAV_SRC}/srrg_system_utils/system_utils.cpp
-  ${SPQREL_NAV_SRC}/srrg_path_map/base_path_search.cpp
-  ${SPQREL_NAV_SRC}/srrg_path_map/distance_map_path_search.cpp
-  ${SPQREL_NAV_SRC}/srrg_path_map/path_map.cpp
-  ${SPQREL_NAV_SRC}/srrg_ros_wrappers/ros_utils.cpp
   ${SPQREL_NAV_SRC}/srrg_localizer2d/localization_filter.cpp
+  ${SPQREL_NAV_SRC}/../ros/srrg_ros_wrappers/ros_utils.cpp
 )
 
 
@@ -165,12 +166,14 @@ add_executable(srrg_localizer2d_node
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(srrg_localizer2d_node 
+  srrg_path_map
   ${${PROJECT_NAME}_EXPORTED_TARGETS} 
   ${catkin_EXPORTED_TARGETS}
 )
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(srrg_localizer2d_node
+  srrg_path_map
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS} 
 )

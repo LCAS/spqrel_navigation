@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+# qibuild directories
+naoqi/build*
+

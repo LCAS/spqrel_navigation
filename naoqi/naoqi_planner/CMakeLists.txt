@@ -6,7 +6,7 @@ qi_create_lib(naoqi_planner_library
 qi_use_lib(naoqi_planner_library
   srrg_path_map_library
   naoqi_sensor_utils_library
-  yaml_parser_library
+  system_utils
   ALCOMMON 
   ALPROXIES
   OPENCV2_CORE

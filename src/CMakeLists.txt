@@ -1,7 +1,0 @@
-add_subdirectory(srrg_system_utils)
-add_subdirectory(srrg_path_map)
-add_subdirectory(srrg_localizer2d)
-add_subdirectory(yaml_parser)
-add_subdirectory(naoqi_sensor_utils)
-add_subdirectory(naoqi_localizer)
-add_subdirectory(naoqi_planner)

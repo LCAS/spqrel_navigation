@@ -148,14 +148,12 @@ namespace naoqi_planner {
       }
     }
 
-    std::cerr << "points merged size before" << points_merged.size() << std::endl;
     // remove selected vertices
     for (int idx_to_remove: indices_to_remove)
       points_merged.erase(idx_to_remove);
     
     // add new points - current scan 
     points_merged.insert(points_current.begin(), points_current.end());
-    std::cerr << "Merged size: " << points_merged.size() << std::endl;
   }
 
   void DynamicMap::reindex(){
@@ -172,7 +170,6 @@ namespace naoqi_planner {
     // Pixels of obstacles to robot frame
     PointIndexMap transformedPoints;
     transformPointsToRobot(transformedPoints);
-    std::cerr << "Transformed points size: " << transformedPoints.size() << std::endl;
 
     // Project to range and bearing bin
     // Old points
@@ -193,7 +190,6 @@ namespace naoqi_planner {
     transformPointsToMap(points_merged);
     
     reindex();
-    std::cerr << "Number of obstacles: " << _occupied_cells.size() << std::endl;
   }
 
   void DynamicMap::getOccupiedCells(Vector2iVector& occupied_cells){

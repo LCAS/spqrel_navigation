@@ -44,6 +44,7 @@ namespace naoqi_planner_gui {
     
     float _usable_range;
     bool _move_enabled;
+    bool _collision_protection_enabled, _collision_protection_desired;
     
     //! State info
     bool _have_goal;
@@ -53,8 +54,10 @@ namespace naoqi_planner_gui {
     Vector2iVector _path;
 
     //! Map info
-    Eigen::Vector3f _map_origin;    //< world coordinates of the upper left pixel
+    Eigen::Vector3f _map_origin;    //< world coordinates of the bottom left pixel 
+    Eigen::Vector3f _image_map_origin;    //< world coordinates of the upper left pixel 
     Eigen::Isometry2f _map_origin_transform_inverse;
+    Eigen::Isometry2f _image_map_origin_transform_inverse;
     float _map_resolution;
     float _map_inverse_resolution;
     float _occ_threshold;
@@ -70,6 +73,9 @@ namespace naoqi_planner_gui {
     qi::AnyObject _subscriber_goal_reached;
     qi::SignalLink _signal_goal_reached_id;
     void onGoalReached();
+    qi::AnyObject _subscriber_collision_protection_enabled;
+    qi::SignalLink _signal_collision_protection_enabled_id;
+    void onExternalCollisionProtectionEnabled(qi::AnyValue value);
     
     //! GUI stuff
     static void onMouse( int event, int x, int y, int, void* v);

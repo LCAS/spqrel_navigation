@@ -18,6 +18,8 @@ namespace naoqi_planner_gui {
     _robot_pose = Eigen::Vector3f(0.,0.,0.);
 
     _move_enabled = true;
+    _collision_protection_enabled = true; _collision_protection_desired = true;
+
     _path.clear();
   }
 
@@ -35,9 +37,14 @@ namespace naoqi_planner_gui {
       n->_goal = Eigen::Vector2i(y,x);
       n->_have_goal = true;
       std::cerr << "Setting goal: " << n->_goal.transpose() << std::endl;
+
+      Eigen::Vector2f goalf = n->grid2world(n->_goal);
+      Eigen::Vector3f vgoal(goalf.x(), goalf.y(), 0);
+      Eigen::Isometry2f goal_origin = v2t(n->_image_map_origin)*v2t(vgoal);
+      
       FloatVector goal;
-      goal.push_back(y);
-      goal.push_back(x);
+      goal.push_back(goal_origin.translation().x());
+      goal.push_back(goal_origin.translation().y());
       qi::AnyValue value = qi::AnyValue::from(goal);
       n->_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Goal", value);
     }
@@ -48,12 +55,27 @@ namespace naoqi_planner_gui {
     _path.clear();
   }
 
+  void NAOqiPlannerGUI::onExternalCollisionProtectionEnabled(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> External Collision Protection Enabled CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    _collision_protection_enabled = value.as<bool>();
+    if (_collision_protection_enabled){
+      std::cerr << "External Collision Protection Desired enabled" << std::endl;
+    } else {
+      std::cerr << "External Collision Protection Desired disabled" << std::endl;
+    }
+    
+  }
+
   void NAOqiPlannerGUI::subscribeServices(){
     _memory_service = _session->service("ALMemory");
 
     //subscribe to goal changes
     _subscriber_goal_reached = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/GoalReached");
     _signal_goal_reached_id = _subscriber_goal_reached.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlannerGUI::onGoalReached, this))));
+
+    //subscribe to collision protection changes
+    _subscriber_collision_protection_enabled = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/ExternalCollisionProtectionEnabled");
+    _signal_collision_protection_enabled_id = _subscriber_collision_protection_enabled.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlannerGUI::onExternalCollisionProtectionEnabled, this, _1))));
     
     _stop_thread=false;
     _servicesMonitorThread = std::thread(&NAOqiPlannerGUI::servicesMonitorThread, this);
@@ -79,7 +101,7 @@ namespace naoqi_planner_gui {
 	Eigen::Vector3f robot_pose_vector = srrg_core::fromFloatVector3f(robot_pose_floatvector);
 	std::cerr << "Robot pose map: " << robot_pose_vector.transpose() << std::endl;
 	
-	Eigen::Isometry2f robot_pose_transform=_map_origin_transform_inverse*v2t(robot_pose_vector);
+	Eigen::Isometry2f robot_pose_transform=_image_map_origin_transform_inverse*v2t(robot_pose_vector);
 	_robot_pose = t2v(robot_pose_transform);
 	
 	_robot_pose_image = world2grid(Eigen::Vector2f(_robot_pose.x(), _robot_pose.y()));
@@ -144,6 +166,16 @@ namespace naoqi_planner_gui {
     _map_image = cv::imread(full_path_map_image, CV_LOAD_IMAGE_GRAYSCALE);
     std::cerr << "Image read: (" << _map_image.rows << "x" << _map_image.cols << ")" << std::endl;
 
+    // _map_origin: reference system bottom-left, X right, Y up  (values read from yaml file) (ROS convention)
+    // _image_map_origin: image reference system top-left, X down, Y right (opencv convention)
+
+    // transform from _map_origin to _image_map_origin
+    Eigen::Vector3f map_to_image(0,_map_image.rows*_map_resolution,-M_PI/2);
+    Eigen::Isometry2f tf = v2t(_map_origin) * v2t(map_to_image);
+    _image_map_origin = t2v(tf);
+    _image_map_origin_transform_inverse = v2t(_image_map_origin).inverse();;
+
+    
     int occ_threshold = (1.0 - _occ_threshold) * 255;
     int free_threshold = (1.0 - _free_threshold) * 255;
     grayMap2indices(_indices_image, _map_image, occ_threshold, free_threshold);
@@ -191,6 +223,14 @@ namespace naoqi_planner_gui {
 	
       }
     }
+
+    char buf[1024];
+    sprintf(buf, " MoveEnabled: %d", _move_enabled);
+    cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+    sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
+    cv::putText(shown_image, buf, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+    sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
+    cv::putText(shown_image, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
       
     cv::imshow("pepper_planner_gui", shown_image);
   }  
@@ -207,6 +247,10 @@ namespace naoqi_planner_gui {
       std::cerr << "Resetting" << std::endl;
       _have_goal = false;
       _memory_service.call<void>("raiseEvent", "NAOqiPlanner/Reset", true);
+    case 'o':
+      _collision_protection_desired = ! _collision_protection_desired;
+      std::cerr << "External Collision Protection Desired: " << _collision_protection_desired << std::endl;
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/CollisionProtectionDesired", _collision_protection_desired);
     default:;
     }
   }

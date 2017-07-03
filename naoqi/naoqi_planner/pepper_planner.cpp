@@ -22,6 +22,7 @@ int main(int argc, char **argv){
     ("robot_radius", po::value<float>()->default_value(0.3), "robot_radius.")
     ("safety_region", po::value<float>()->default_value(1.0), "safety_region.")
     ("use_gui", po::value<bool>()->default_value(false), "use_gui.")
+    ("collision_protection_desired", po::value<bool>()->default_value(true), "Enable/Disable self collision obstacle avoidance.")
     ;
   
   po::variables_map vm;
@@ -68,6 +69,7 @@ int main(int argc, char **argv){
   planner->setMinCost(vm["min_cost"].as<float>());
   planner->setRobotRadius(vm["robot_radius"].as<float>());
   planner->setSafetyRegion(vm["safety_region"].as<float>());
+  planner->setExternalCollisionProtectionDesired(vm["collision_protection_desired"].as<bool>());
   
   //get map
   planner->readMap(mapname);

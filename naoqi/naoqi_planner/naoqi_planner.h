@@ -34,7 +34,10 @@ namespace naoqi_planner {
     inline float getRobotRadius() const {return _robot_radius;}
     inline void setSafetyRegion(float safety_region) {_safety_region = safety_region;}
     inline float getSafetyRegion() const {return _safety_region;}
-
+    inline void setExternalCollisionProtectionDesired(bool collision_protection_desired) {
+      _collision_protection_desired = collision_protection_desired;}
+    inline float getExternalCollisionProtectionDesired() const {return _collision_protection_desired;}
+      
     void subscribeServices();
     void unsubscribeServices();
 
@@ -73,7 +76,8 @@ namespace naoqi_planner {
     int _max_distance_map_index;
     
     Vector2iVector _path;
-    bool _move_enabled, _collision_protection_enabled, _collision_protection_desired;
+    bool _move_enabled;
+    bool _collision_protection_enabled, _collision_protection_desired;
     void computeControlToWaypoint(float& v, float& w);
     float _prev_v, _prev_w;
 
@@ -118,6 +122,9 @@ namespace naoqi_planner {
     qi::AnyObject _subscriber_move_enabled;
     qi::SignalLink _signal_move_enabled_id;
     void onMoveEnabled(qi::AnyValue value);
+    qi::AnyObject _subscriber_collision_protection_desired;
+    qi::SignalLink _signal_collision_protection_desired_id;
+    void onCollisionProtectionDesired(qi::AnyValue value);
     qi::AnyObject _subscriber_reset;
     qi::SignalLink _signal_reset_id;
     void publishPath();

@@ -99,6 +99,7 @@ namespace naoqi_planner {
     case 'r':
       std::cerr << "Resetting" << std::endl;
       reset();
+      break;
     case 'o':
       _collision_protection_desired = ! _collision_protection_desired;
       std::cerr << "External Collision Protection Desired: " << _collision_protection_desired << std::endl;
@@ -225,8 +226,6 @@ namespace naoqi_planner {
 
     // we receive the goal in world coordinates [m]
 
-    srrg_core::FloatVector igoal; // image coordinates
-
     Eigen::Vector3f vgoal(goal[0], goal[1], 0);
 
     Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(vgoal);
@@ -246,6 +245,15 @@ namespace naoqi_planner {
     }
   }
 
+  void NAOqiPlanner::onCollisionProtectionDesired(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> Move Collision Protection Desired CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    _collision_protection_desired = value.as<bool>();
+    if (_collision_protection_desired){
+      std::cerr << "External Collision Protection Desired enabled" << std::endl;
+    } else {
+      std::cerr << "External Collision Protection Desired disabled" << std::endl;
+    }
+  }
   
   void NAOqiPlanner::subscribeServices(){
     _memory_service = _session->service("ALMemory");
@@ -258,7 +266,11 @@ namespace naoqi_planner {
     //subscribe to move enabled
     _subscriber_move_enabled = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/MoveEnabled");
     _signal_move_enabled_id = _subscriber_move_enabled.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::onMoveEnabled, this, _1))));
-    
+
+    //subscribe to collision protection desired 
+    _subscriber_collision_protection_desired = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/CollisionProtectionDesired");
+    _signal_collision_protection_desired_id = _subscriber_collision_protection_desired.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::onCollisionProtectionDesired, this, _1))));
+
     //subscribe to reset
     _subscriber_reset = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Reset");
     _signal_reset_id = _subscriber_reset.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::reset, this))));
@@ -273,6 +285,7 @@ namespace naoqi_planner {
   void NAOqiPlanner::unsubscribeServices(){
     _subscriber_goal.disconnect(_signal_goal_id);
     _subscriber_move_enabled.disconnect(_signal_move_enabled_id);
+    _subscriber_collision_protection_desired.disconnect(_signal_collision_protection_desired_id);
     _stop_thread=true;
     _servicesMonitorThread.join();
   }
@@ -286,9 +299,14 @@ namespace naoqi_planner {
   }
 
   void NAOqiPlanner::setExternalCollisionProtectionEnabled(bool value) {
-    std::cerr << "Warning: disabling Pepper self collision protection" << std::endl;
+    if (value)
+      std::cerr << "Enabling Pepper self collision protection" << std::endl;
+    else
+      std::cerr << "Warning: disabling Pepper self collision protection" << std::endl;
     _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", value);
     _collision_protection_enabled = value;
+    _memory_service.call<void>("raiseEvent", "NAOqiPlanner/ExternalCollisionProtectionEnabled",_collision_protection_enabled);
+
   }
 
   void NAOqiPlanner::servicesMonitorThread() {
@@ -345,7 +363,6 @@ namespace naoqi_planner {
 
       if (laser_points.size()>0) {
 
-          std::cerr << "WARNING: laser data not available." << std::endl;
           _dyn_map.setMapResolution(_map_resolution);
           _dyn_map.setRobotPose(robot_pose_transform);
           _dyn_map.setCurrentPoints(laser_points);
@@ -357,7 +374,10 @@ namespace naoqi_planner {
           _dmap_calculator.setPoints(obstacle_points, _max_distance_map_index);
           _dmap_calculator.compute();
 
-        }
+      }else{
+	std::cerr << "WARNING: laser data not available." << std::endl;
+      }
+
 
       _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
       distances2cost(_cost_image,
@@ -369,7 +389,7 @@ namespace naoqi_planner {
 
       std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
       std::cerr << "DMapCalculator: "
-	    << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << std::endl;
+		<< std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
       
 
 
@@ -386,7 +406,7 @@ namespace naoqi_planner {
 	std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
 
 	std::cerr << "PathCalculator: "
-		  << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << std::endl;
+		  << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl;
 
 	_path.clear();
 	// Filling path
@@ -403,9 +423,9 @@ namespace naoqi_planner {
 	computeControlToWaypoint(linear_vel, angular_vel);
 	if (_move_enabled){
 
-      if (_collision_protection_desired != _collision_protection_enabled) {
-        setExternalCollisionProtectionEnabled(_collision_protection_desired); 
-      }
+	  if (_have_goal && _collision_protection_desired != _collision_protection_enabled) {
+	    setExternalCollisionProtectionEnabled(_collision_protection_desired); 
+	  }
 
 	  //apply vels
 	  std::cerr << "Applying vels: " << linear_vel  << " " << angular_vel << std::endl;
@@ -414,8 +434,8 @@ namespace naoqi_planner {
 	  _prev_v = 0;
 	  _prev_w = 0;
 	  _motion_service.call<void>("stopMove");
-      // we are not controlling the robot, set collision avoidance
-      setExternalCollisionProtectionEnabled(true);
+	  // we are not controlling the robot, set collision avoidance
+	  setExternalCollisionProtectionEnabled(true);
 	} // _move_enabled
 	
       } // _have_goal //else nothing to compute

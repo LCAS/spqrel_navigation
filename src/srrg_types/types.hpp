@@ -47,6 +47,10 @@ namespace srrg_core {
   //!a 3x6 float matrix
   typedef Eigen::Matrix<float, 3, 6> Matrix3_6f;
 
+
+  //!a 5x5 float matrix
+  typedef Eigen::Matrix<float, 5, 5> Matrix5f;
+
   //!a 6x6 float matrix
   typedef Eigen::Matrix<float, 6, 6> Matrix6f;
 
@@ -75,7 +79,7 @@ namespace srrg_core {
   //!@returns true if at least one element of
   //!the argument is null
   template <class T> 
-    bool isNan(const T& m){
+  bool isNan(const T& m){
     for (int i=0; i< m.rows(); i++) {
       for (int j=0; j< m.cols(); j++) {
 	float v = m(i,j);
@@ -135,6 +139,16 @@ namespace srrg_core {
     if (q.w()<0)
       v.block<3,1>(3,0) *= -1.0f;
     return v;
+  }
+
+  //!converts from isometry2f to isometry3f                                                                   
+  //!@param t: an isometry2f
+  //!@returns an isometry3f
+  inline Eigen::Isometry3f toIsometry3f(const Eigen::Isometry2f& isometry2f){
+    Eigen::Isometry3f isometry3f;
+    isometry3f.linear().block<2,2>(0,0) = isometry2f.linear();
+    isometry3f.translation().head<2>() = isometry2f.translation();
+    return isometry3f;
   }
 
   //!computes the cross product matrix of the vector argument

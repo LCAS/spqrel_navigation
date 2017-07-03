@@ -50,6 +50,9 @@ namespace srrg_core {
   template <typename CellType_, typename AllocatorType_>
   void
   Vector2D<CellType_, AllocatorType_>::resize(std::size_t rows_, std::size_t cols_){
+    // if size is ok, do nothing
+    if (rows_==_row_ptrs.size() && _cols==cols_)
+      return;
     std::size_t num_elements=rows_*cols_;
     if (! num_elements)
       clear();
@@ -82,7 +85,7 @@ namespace srrg_core {
   template <typename CellType_, typename AllocatorType_>
   void
   Vector2D<CellType_, AllocatorType_>::copy(const Vector2D& other) {
-    if (!other.data().size()){
+    if (!other._data.size()){
       clear();
       return;
     }

@@ -1,5 +1,5 @@
 #include "ros_planner.h"
-#include "ros_utils/ros_utils.h"
+#include "srrg_ros_wrappers/ros_utils.h"
 #include <cmath>
 #include <fstream>
 #if defined(_WIN32)

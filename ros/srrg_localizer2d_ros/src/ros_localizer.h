@@ -14,7 +14,7 @@
 #include "nav_msgs/GetMap.h"
 #include "std_srvs/Empty.h"
 //#include "srrg_types/defs.h"
-#include "srrg_localizer2d_ros/LocalizerRanges.h"
+#include "spqrel_navigation/LocalizerRanges.h"
 #include "localization_filter.h"
 
 namespace srrg_localizer2d_ros{

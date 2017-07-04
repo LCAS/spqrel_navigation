@@ -5,90 +5,10 @@ project(spqrel_navigation)
 #set(CMAKE_VERBOSE_MAKEFILE ON)
 
 if(qibuild_DIR)
-  # This include enable you to use qibuild framework
+
   find_package(qibuild)
 
-  message("Toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
-  message("Current source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
-
-  include_directories(./src ./naoqi)
-
-  #add_subdirectory(srrg_system_utils)
-  #add_subdirectory(yaml_parser)
-
-  qi_create_lib(srrg_system_utils_yaml
-    SHARED
-    ./src/srrg_system_utils/system_utils.cpp 
-    ./src/yaml_parser/simple_yaml_parser.cpp 
-  )
-
-  qi_use_lib(srrg_system_utils_yaml
-    EIGEN3
-  )
-
-  qi_stage_lib(srrg_system_utils_yaml)
-
-
-  #add_subdirectory(srrg_path_map)
-
-
-  qi_create_lib(srrg_path_map_library SHARED
-    ./src/srrg_path_map/path_map.cpp 
-    ./src/srrg_path_map/path_map_utils.cpp 
-    ./src/srrg_path_map/base_path_search.cpp 
-    ./src/srrg_path_map/distance_map_path_search.cpp 
-    ./src/srrg_path_map/dijkstra_path_search.cpp
-  )
-
-  qi_use_lib(srrg_path_map_library
-    OPENCV2_CORE
-    EIGEN3
-  )
-
-  qi_stage_lib(srrg_path_map_library)
-
-  qi_create_bin(distance_map_test 
-      ./src/srrg_path_map/distance_map_test.cpp
-  )
-
-  qi_use_lib(distance_map_test
-    srrg_path_map_library
-    srrg_system_utils_yaml
-    OPENCV2_CORE
-    OPENCV2_HIGHGUI
-  )
-
-  qi_create_bin(dijkstra_test 
-      ./src/srrg_path_map/dijkstra_test.cpp
-  )
-
-  qi_use_lib(dijkstra_test
-    srrg_path_map_library
-    srrg_system_utils_yaml
-    OPENCV2_CORE
-    OPENCV2_HIGHGUI
-    OPENCV2_IMGPROC
-  )
-
-  #add_subdirectory(../src/srrg_localizer2d)
-
-
-  qi_create_lib(srrg_localizer2d_library
-    ./src/srrg_localizer2d/localization_filter.cpp
-  )
-
-  qi_use_lib(srrg_localizer2d_library
-    srrg_path_map_library
-    OPENCV2_CORE
-    OPENCV2_IMGPROC
-  )
-
-  qi_stage_lib(srrg_localizer2d_library)
-
-
-  add_subdirectory(naoqi/naoqi_sensor_utils)
-  add_subdirectory(naoqi/naoqi_localizer)
-  add_subdirectory(naoqi/naoqi_planner)
+  add_subdirectory(naoqi)
 
 
 else(qibuild_DIR)
@@ -107,6 +27,7 @@ else(qibuild_DIR)
   )
 
   set(CMAKE_CXX_FLAGS "-std=c++11")
+  set(CMAKE_BUILD_TYPE Release)
 
   ## Generate messages in the 'msg' folder
   add_message_files(

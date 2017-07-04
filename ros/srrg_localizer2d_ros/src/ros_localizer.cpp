@@ -4,6 +4,7 @@
 
 namespace srrg_localizer2d_ros{
   using namespace std;
+  using namespace spqrel_navigation;
   using namespace srrg_core;
   using namespace srrg_core_ros;
 

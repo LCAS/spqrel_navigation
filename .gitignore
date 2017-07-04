@@ -32,5 +32,6 @@
 *.app
 
 # qibuild directories
+build*
 naoqi/build*
 

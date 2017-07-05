@@ -30,6 +30,10 @@ namespace naoqi_planner {
     inline void setRobotPose(const Eigen::Isometry2f& robot_pose) {_robot_pose = robot_pose;}
     void setCurrentPoints(const Vector2fVector& current_points);
 
+    inline void addBlindZone(const float from, const float to) {
+      _blind_zones.push_back(Eigen::Vector2f(from, to));
+    }
+    
     void compute();
     void getOccupiedCells(Vector2iVector& occupied_cells);
     
@@ -47,7 +51,8 @@ namespace naoqi_planner {
     int _num_ranges; // 60 for pepper
     float _angle_increment;
     float _distance_threshold;
-
+    Vector2fVector _blind_zones;
+    
     inline Eigen::Vector2i world2grid(const Eigen::Vector2f p) {
       return Eigen::Vector2i(p.x()*_map_inverse_resolution, p.y()*_map_inverse_resolution);
     }
@@ -63,6 +68,7 @@ namespace naoqi_planner {
     void transformPointsToRobot(PointIndexMap& transformedPoints);
     void transformPointsToMap(const PointIndexMap& points);
     void projectPoints(FloatVector& ranges, IntVector& indices, const PointIndexMap& points);
+    void applyBlindZones(IntVector& indices);
     void merge(PointIndexMap& points_merged,
 	       const FloatVector& ranges_previous, const IntVector& indices_previous,
 	       const PointIndexMap& points_previous,

@@ -25,6 +25,10 @@ namespace naoqi_planner {
     _collision_protection_enabled = true; _collision_protection_desired = true;
     
     _prev_v = 0.0; _prev_w = 0.0;
+
+    _dyn_map.clearPoints();
+    _dyn_map.addBlindZone(30*M_PI/180, 60*M_PI/180);
+    _dyn_map.addBlindZone(-30*M_PI/180, -60*M_PI/180);
   }
 
   void NAOqiPlanner::initGUI(){
@@ -160,6 +164,18 @@ namespace naoqi_planner {
 	}
       }
 
+
+      //Draw laser
+      for (size_t i=0; i<_laser_points.size(); i++){
+	Eigen::Vector2f lp=v2t(_robot_pose)* _laser_points[i];
+	int r = lp.x()*_map_inverse_resolution;
+	int c = lp.y()*_map_inverse_resolution;
+	if (! _distance_map.inside(r,c))
+	  continue;
+	cv::circle(shown_image, cv::Point(c, r), 3, cv::Scalar(1.0f));
+      }
+
+      
       char buf[1024];
       sprintf(buf, " MoveEnabled: %d", _move_enabled);
       cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
@@ -333,20 +349,9 @@ namespace naoqi_planner {
       std::cerr << "Image pose [pixel]: " << _robot_pose_image.transpose() << std::endl;
       
       //get laser
-      Vector2fVector laser_points = getLaser(_memory_service, _usable_range);
-      /*Vector2iVector obstacle_points;
-      for (size_t i=0; i<laserpoints.size(); i++){
-	Eigen::Vector2f lp=robot_pose_transform* laserpoints[i];
-	int r = lp.x()*_map_inverse_resolution;
-	int c = lp.y()*_map_inverse_resolution;
-	if (! _distance_map.inside(r,c))
-	  continue;
-	obstacle_points.push_back(Eigen::Vector2i(r,c));
-	}*/
-
+      _laser_points = getLaser(_memory_service, _usable_range);
 
       //here I'll do something map + loc + laser + goal -> path
-      
       if (_restart){
 	_dmap_calculator.setMaxDistance(_safety_region/_map_resolution);
 	_dmap_calculator.setIndicesImage(_indices_image);
@@ -361,11 +366,11 @@ namespace naoqi_planner {
       std::chrono::steady_clock::time_point time_dmap_start = std::chrono::steady_clock::now();
       _distance_map.data()=_distance_map_backup;
 
-      if (laser_points.size()>0) {
+      if (_laser_points.size()>0) {
 
           _dyn_map.setMapResolution(_map_resolution);
           _dyn_map.setRobotPose(robot_pose_transform);
-          _dyn_map.setCurrentPoints(laser_points);
+          _dyn_map.setCurrentPoints(_laser_points);
           _dyn_map.compute();
           Vector2iVector obstacle_points;
           _dyn_map.getOccupiedCells(obstacle_points);

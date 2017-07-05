@@ -20,7 +20,6 @@ namespace naoqi_planner {
       curr_index++;
     }
   }
-
   
   bool DynamicMap::findCellByIndex(const CellIndexMap& cellIndexMap, const int index, Eigen::Vector2i& cell){
     for (CellIndexMap::const_iterator it=cellIndexMap.begin(); it!=cellIndexMap.end(); it++){
@@ -98,6 +97,34 @@ namespace naoqi_planner {
     }
   }
 
+  void DynamicMap::applyBlindZones(IntVector& indices){
+    float middle = _num_ranges * 0.5;
+    float inverse_angle_increment = 1. / _angle_increment;
+    
+    for (Eigen::Vector2f blind_zone: _blind_zones){
+      float from, to;
+      if (blind_zone.x() < blind_zone.y()){
+	from = blind_zone.x();
+	to = blind_zone.y();
+      } else {
+	from = blind_zone.y();
+	to = blind_zone.x();
+      }
+
+      int bin_from = round(from * inverse_angle_increment + middle);
+      int bin_to = round(to * inverse_angle_increment + middle);
+
+      if (bin_from < 0 || bin_from > _num_ranges || bin_to < 0 || bin_to > _num_ranges){
+	std::cerr << "Not valid in blind zone. From: " << bin_from << " to: " << bin_to << std::endl;
+	continue;
+      }
+      // From [bin_from, bin_to), bin_to not included. bin_to<=num_ranges. 
+      std::replace (indices.begin()+bin_from, indices.begin()+bin_to, -1, -2 );
+    }
+
+
+  }
+  
   void DynamicMap::merge(PointIndexMap& points_merged,
 			 const FloatVector& ranges_previous, const IntVector& indices_previous,
 			 const PointIndexMap& points_previous,
@@ -105,39 +132,36 @@ namespace naoqi_planner {
 			 const PointIndexMap& points_current){
 
     points_merged = points_previous;
-  
+    
     std::vector<int> indices_to_remove;
     for (size_t i = 0; i < ranges_previous.size(); i++){
       int idx_prev = indices_previous[i];
       int idx_curr = indices_current[i];
 
       if (idx_prev < 0) {
-	/* if (idx_curr > -1) {
-	   new_points++;
-	   }*/
+	//There was no point previously in this bin,
+	//We do not do anything
 	continue;
       }
 
       // new point to the infinity, remove old one
-      if (idx_curr < 0) {
+      if (idx_curr == -1 ) {
+	// Current point is in the infinity (-1)
 	if (idx_prev > -1){
+	  // If there was a point in this bin before we remove it
 	  indices_to_remove.push_back(idx_prev);
 	  idx_prev = -1;
 	  continue;
 	}
+      } else if (idx_curr == -2 ) {
+	// Current point is in blind zone,
+	// We do not do anything
+	continue;
       }
 
       float range_prev = ranges_previous[i];
       float range_curr = ranges_current[i];
       float distance = (range_prev - range_curr);
-
-      /*
-	if (distance > distance_threshold){
-	//new point in front
-	idx_prev = -1;
-	new_points++;
-	continue;
-	}*/
 
       if (distance < -_distance_threshold || fabs(distance) < _distance_threshold){
 	//new point a lot behind or in the distance_threshold
@@ -182,6 +206,25 @@ namespace naoqi_planner {
     IntVector indices_current;
     projectPoints(ranges_current, indices_current, _current_points);
 
+    /*
+    std::cerr << "Indices before: ";
+    for (size_t i = 0; i<indices_current.size(); i++){
+      std::cerr << indices_current[i] << " ";
+    }
+    std::cerr << std::endl;
+    */
+    
+    // Consider blind zones (suitable for Pepper)
+    applyBlindZones(indices_current);
+
+    /*
+    std::cerr << "Indices after: ";
+    for (size_t i = 0; i<indices_current.size(); i++){
+      std::cerr << indices_current[i] << " ";
+    }
+    std::cerr << std::endl;
+    */
+    
     PointIndexMap points_merged;
     merge(points_merged,
 	  ranges_previous, indices_previous, transformedPoints,

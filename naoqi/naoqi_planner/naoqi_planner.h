@@ -81,6 +81,7 @@ namespace naoqi_planner {
     void computeControlToWaypoint(float& v, float& w);
     float _prev_v, _prev_w;
 
+    Vector2fVector _laser_points;
     DynamicMap _dyn_map;
 
     float _usable_range;

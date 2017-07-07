@@ -2,8 +2,8 @@
 Changelog for package spqrel_navigation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.1 (2017-07-07)
+------------------
 * added dynreconf
 * added move_base_msgs
 * added tf dep

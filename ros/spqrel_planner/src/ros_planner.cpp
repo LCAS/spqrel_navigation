@@ -101,9 +101,36 @@ double getCPUTime( )
 }
 
 
+
+
 namespace spqrel_navigation {
 
 using namespace std;
+using namespace srrg_core;
+using namespace srrg_core_ros;
+
+
+// ROS utils
+
+//! returns the time in milliseconds
+double getTime_ms() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return 1e3*tv.tv_sec+1e-3*tv.tv_usec;
+}
+
+Eigen::Vector3f convertPose(const tf::StampedTransform& t) {
+    double yaw,pitch,roll;
+    tf::Matrix3x3 mat =  t.getBasis();
+    mat.getRPY(roll, pitch, yaw);
+    return Eigen::Vector3f(t.getOrigin().x(), t.getOrigin().y(), yaw);
+}
+
+double getYaw(tf::Pose& t) {
+    double yaw, pitch, roll;
+    t.getBasis().getEulerYPR(yaw,pitch,roll);
+    return yaw;
+}
 
 
 
@@ -127,7 +154,7 @@ ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
     _show_distance_map = false;
     _force_redisplay=false;
     _set_goal = false;
-    _use_gui=true;
+    _use_gui=false;
     _map_origin.setZero();
     _timers.resize(10);
     _last_timer_slot=0;
@@ -140,13 +167,12 @@ ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
     _action_result="";
     _as.registerPreemptCallback(boost::bind(&ROSPlanner::preemptCB, this) );
     _as.start();
-    _gradient_controller=new GradientController();
-
 }
 
 
 void ROSPlanner::setROSParams() {
 
+#if 0
     //---------------------------------------------------------------------------------------------
     cerr << endl << "Gradient Controller Parameters: " << endl;
     //---------------------------------------------------------------------------------------------
@@ -244,6 +270,7 @@ void ROSPlanner::setROSParams() {
     cerr << "grid planner: [float] _robot_radius: " << robot_radius << endl;
     setRobotRadius(robot_radius);
     //---------------------------------------------------------------------------------------------
+#endif
 
     //---------------------------------------------------------------------------------------------
     cerr << endl << "ROS Planner Parameters: " << endl;
@@ -294,7 +321,7 @@ void ROSPlanner::setROSParams() {
     bool publish_global_plan;
     _private_nh.param("publish_global_plan", publish_global_plan, false);
     cerr << "thin_planner: [float] _publish_global_plan: " << publish_global_plan << endl;
-    setCompute_global_path(publish_global_plan);
+    // setCompute_global_path(publish_global_plan);
 
 }
 
@@ -350,22 +377,22 @@ void ROSPlanner::preemptCB() {
 }
 
 void ROSPlanner::init() {
-    GridPlanner::init();
+
     // subscribe to laser topic (main execution thread for the planner)
     subscribeCallbacks(_laser_topic);
 
-    std::cerr << "ROSPlanner subscribe to laser topic: " << _laser_topic << std::endl;
+    std::cerr << "ROSPlanner subscribing to laser topic: " << _laser_topic << std::endl;
 
-    initGUI();
+    if (_use_gui)
+        _planner.initGUI();
+
+    _planner.subscribeServices();
 }
 
 
-void ROSPlanner::initGUI() {
-    if (!_use_gui) return;
-    cv::namedWindow( "thin_planner", 0 );
-    cv::namedWindow( "map", 0 );
-    cv::setMouseCallback( "thin_planner", &ROSPlanner::onMouse, this );
-    cerr << "GUI initialized" << endl;
+void ROSPlanner::quit() {
+    //unsubscribeCallbacks(_laser_topic);
+    _planner.unsubscribeServices();
 }
 
 void ROSPlanner::rangesToEndpoints(Vector2fVector& endpoints,
@@ -401,8 +428,76 @@ void ROSPlanner::rangesToEndpoints(Vector2fVector& endpoints,
     endpoints.resize(k);
 }
 
-void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
+void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
+    _last_observation_time = msg->header.stamp;
+
+    std::string error;
+
+    // laser pose on robot
+    if (! _listener->waitForTransform (_base_frame_id, 
+				       msg->header.frame_id, 
+				       _last_observation_time, 
+				       ros::Duration(0.5), 
+				       ros::Duration(0.5), &error)) {
+      cerr << "ROSPlanner: transform error from " << _base_frame_id << " to " << msg->header.frame_id << " : " << error << endl;
+      return;
+    }
+    tf::StampedTransform laser_pose_t;
+    _listener->lookupTransform(_base_frame_id, 
+			       msg->header.frame_id, 
+			       _last_observation_time, 
+			       laser_pose_t);
+
+    Eigen::Vector3f laser_pose = convertPose2D(laser_pose_t);
+   
+    if (! _listener->waitForTransform (_base_frame_id, 
+				       msg->header.frame_id, 
+				       _last_observation_time, 
+				       ros::Duration(0.5), 
+				       ros::Duration(0.5), 
+				       &error)) {
+      cerr << "error: " << error << endl;
+      return;
+    }
+
+
+    // global pose
+    if (! _listener->waitForTransform (_global_frame_id,
+                                       _base_frame_id,
+                                       _last_observation_time,
+                                       ros::Duration(0.5),
+                                       ros::Duration(0.5),
+                                       &error)) {
+        cerr << "ROSPlanner: transform error from " << _global_frame_id << " to " << _base_frame_id << " : " << error << endl;
+        return;
+    }
+
+    tf::StampedTransform robot_pose_t;
+    _listener->lookupTransform(_global_frame_id,
+                               _base_frame_id,
+                               _last_observation_time,
+                               robot_pose_t);
+    Eigen::Isometry2f inverse_map_origin_transform=v2t(_map_origin).inverse();
+    //_robot_pose = t2v( inverse_map_origin_transform * v2t(convertPose(robot_pose_t)));
+
+    Eigen::Vector3f robot_pose = t2v( inverse_map_origin_transform * v2t(convertPose2D(robot_pose_t)));
+
+    _planner.setRobotPose(robot_pose);
+
+    Vector2fVector endpoints(msg->ranges.size());
+    rangesToEndpoints(endpoints, laser_pose, msg);
+    
+    //updateTemporaryMap(endpoints);
+    //_nearest_pub.publish(_nearest_dynamic_object);
+
+    _planner.setLaserPoints(endpoints);
+
+}
+
+
+#if 0
+void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
     //    std::cerr << "ROSPlanner::laserCallback 1 " << std::endl;
 
     // if (!_as.isActive()) return;  // DOES NOT WORK WITH SIMPLE GOALS (RVIZ)
@@ -432,25 +527,7 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
     Eigen::Vector3f laser_pose = convertPose(laser_pose_t);
 
-    // global pose
-    if (! _listener->waitForTransform (_global_frame_id,
-                                       _base_frame_id,
-                                       _last_observation_time,
-                                       ros::Duration(0.5),
-                                       ros::Duration(0.5),
-                                       &error)) {
-        cerr << "ROSPlanner: transform error from " << _global_frame_id << " to " << _base_frame_id << " : " << error << endl;
-        return;
-    }
-
-    tf::StampedTransform robot_pose_t;
-    _listener->lookupTransform(_global_frame_id,
-                               _base_frame_id,
-                               _last_observation_time,
-                               robot_pose_t);
-    Eigen::Isometry2f inverse_map_origin_transform=v2t(_map_origin).inverse();
-    //_robot_pose = t2v( inverse_map_origin_transform * v2t(convertPose(robot_pose_t)));
-    setRobotPose(t2v( inverse_map_origin_transform * v2t(convertPose(robot_pose_t))));
+    
     // // odometry
     // std::string _odom_frame_id="/odom";
     // if (! _listener->waitForTransform (_odom_frame_id,
@@ -469,7 +546,7 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
     // 			       _last_observation_time,
     // 			       odom_pose_t);
     // Eigen::Vector3f odom_pose = convertPose(odom_pose_t);
-    double t0=getTime();
+    double t0=getTime_ms();
 
 
     Vector2fVector endpoints(msg->ranges.size());
@@ -517,7 +594,7 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
         }
     }
     
-    double t1=getTime();
+    double t1=getTime_ms();
     _timers[_last_timer_slot]=t1-t0;
     _last_timer_slot++;
     if(_last_timer_slot>=_timers.size())
@@ -538,8 +615,12 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
     handleGUIInput();
 }
+#endif
 
+
+#if 0
 void ROSPlanner::dynamicReconfigureCallback(thin_navigation::ThinNavigationConfig &config, uint32_t level){
+
     ROS_INFO("Reconfigure Request!");
 
     _gradient_controller->setAttractionParameters(config.Ktv,config.Krv);
@@ -551,62 +632,9 @@ void ROSPlanner::dynamicReconfigureCallback(thin_navigation::ThinNavigationConfi
     setGoalToleranceR(config.goal_tolerance_r);
 
     setWaitCicle(config.wait_cicle);
-}
-
-void ROSPlanner::handleGUIInput(){
-    if (! _use_gui)
-        return;
-
-    char key=cv::waitKey(10);
-    switch(key) {
-    case 'd':
-        _show_distance_map = ! _show_distance_map;
-        cerr << "toggle distance map: " << _show_distance_map << endl;
-        break;
-    case 'g':
-        _set_goal=!_set_goal;
-        cerr << "set goal is " << _set_goal << endl;
-        break;
-    default:;
-    }
-}
-
-void ROSPlanner::handleGUIDisplay() {
-    if (_use_gui) {
-        RGBImage img;
-        paintState(img, _show_distance_map);
-        cv::imshow("thin_planner", img);
-        cv::imshow("map",_local.map_image);
-
-    }
-    _force_redisplay=false;
 
 }
-
-void ROSPlanner::onMouse( int event, int x, int y, int, void* v)
-{
-    ROSPlanner* n=reinterpret_cast<ROSPlanner*>(v);
-    if (!n->_set_goal)
-        return;
-    if( event == cv::EVENT_LBUTTONDOWN ) {
-        Eigen::Vector2f p=n->grid2world(Eigen::Vector2i(y,x));
-        Eigen::Vector3f new_goal=n->_goal;
-        new_goal.x()=p.x();
-        new_goal.y()=p.y();
-        n->setGoal(new_goal);
-        n->_have_goal=true;
-    }
-    if( event == cv::EVENT_RBUTTONDOWN ) {
-        Eigen::Vector2f p=n->grid2world(Eigen::Vector2i(y,x));
-        Eigen::Vector3f new_goal=n->_goal;
-        Eigen::Vector2f dp=p-new_goal.head<2>();
-        float angle=atan2(dp.y(), dp.x());
-        new_goal.z()=angle;
-        n->setGoal(new_goal);
-        n->_have_goal=true;
-    }
-
-}
+#endif
 
 void ROSPlanner::subscribeCallbacks(const std::string& laser_topic){
     _laser_topic=laser_topic;
@@ -617,11 +645,11 @@ void ROSPlanner::subscribeCallbacks(const std::string& laser_topic){
     _nearest_pub = _nh.advertise<std_msgs::Float32>(_nearest_object_topic,-1);
     _temp_pub = _nh.advertise<nav_msgs::OccupancyGrid>(_temp_topic, 1);
     _path_pub= _nh.advertise<nav_msgs::Path>(_path_topic,1);
-    if(_compute_global_path)
-        _global_path_pub= _nh.advertise<nav_msgs::Path>(_global_path_topic,1);
+    //if(_compute_global_path)
+    //    _global_path_pub= _nh.advertise<nav_msgs::Path>(_global_path_topic,1);
 
-    _function = boost::bind(&thin_navigation::ROSPlanner::dynamicReconfigureCallback, this , _1, _2);
-    _server.setCallback(_function);
+    //_function = boost::bind(&spqrel_navigation::ROSPlanner::dynamicReconfigureCallback, this , _1, _2);
+    //_server.setCallback(_function);
 }
 
 void ROSPlanner::requestMap() {
@@ -629,16 +657,22 @@ void ROSPlanner::requestMap() {
     nav_msgs::GetMap::Request  req;
     nav_msgs::GetMap::Response resp;
     ROS_INFO("Requesting the map... ");
-    while(!ros::service::call(_map_service_id, req, resp)){
+    while(!ros::service::call(_map_service_id, req, resp) && ros::ok()){
         ROS_WARN("Request for map to service %s failed; trying again...",_map_service_id.c_str());
         ros::Duration d(0.5);
         d.sleep();
     }
+    ROS_INFO("Map received.");
     mapMessageCallback(resp.map);
 }
 
+
 void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
-    ROS_INFO("Setting the map!");
+
+    ROS_INFO("Map info: WIDTH: %d, HEIGHT: %d, RESOLUTION: %f",
+                msg.info.width,msg.info.height,msg.info.resolution);
+
+
     UnsignedCharImage map_image(msg.info.width, msg.info.height);
     int k=0;
     for(int c=0; c<map_image.cols; c++) {
@@ -656,20 +690,27 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
         }
     }
 
-    setMap(map_image, msg.info.resolution, 10, 230);
-    ROS_INFO("WIDTH: %d, HEIGHT: %d, RESOLUTION: %f",msg.info.width,msg.info.height,msg.info.resolution);
     tf::Pose pose;
     tf::poseMsgToTF(msg.info.origin, pose);
-    Eigen::Vector3f new_origin(pose.getOrigin().x(),
+    Eigen::Vector3f map_origin(pose.getOrigin().x(),
                                pose.getOrigin().y(),
                                getYaw(pose));
-    cerr << "map origin: " << new_origin.transpose() << endl;
-    _map_origin=new_origin;
+    cerr << "map origin: " << map_origin.transpose() << endl;
+
+    _planner.setMapFromImage(map_image,msg.info.resolution,map_origin,
+                             0.65, 0.05);
+
+#if 0
+    // setMap(map_image, msg.info.resolution, 10, 230);
+
+   
 
     // LI do not use this, since it does not work with multi-robot
     //    _global_frame_id=msg.header.frame_id;
 
     init();
+#endif
+
 }
 
 
@@ -689,8 +730,9 @@ void ROSPlanner::setGoalCallback(const geometry_msgs::PoseStampedConstPtr& msg) 
     Eigen::Isometry2f inverse_origin=v2t(_map_origin).inverse();
     Eigen::Isometry2f global_pose=v2t(new_pose);
     Eigen::Vector3f map_pose=t2v(inverse_origin*global_pose);
-    setGoal(map_pose);
-    _have_goal=true;
+
+    _planner.setGoal(map_pose);
+
 }
 
 
@@ -701,6 +743,7 @@ double ROSPlanner::cycleLatency() const {
         acc+=_timers[i];
     return acc/_timers.size();
 }
+
 Eigen::Vector3d t2v(Eigen::Matrix3d A)
 {
     Eigen::Vector3d t;
@@ -739,6 +782,7 @@ Eigen::Vector3d compute_omega(Eigen::Matrix3d T, double gamma, double kappa, dou
 
 
 void ROSPlanner::executePath(){
+#if 0
     geometry_msgs::Twist req_twist;
     if (_plan_found!="GO" && _plan_found!="NEAR" && _plan_found!="ROTATION"){
 
@@ -979,5 +1023,6 @@ void ROSPlanner::executePath(){
     prev_rv=req_twist.angular.z;
     //    current_tv=tv;
     //    current_rv=rv;
+#endif
 }
 }

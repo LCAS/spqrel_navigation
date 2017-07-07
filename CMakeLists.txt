@@ -65,11 +65,13 @@ else(qibuild_DIR)
 
 
   add_library(srrg_ros
+    ./src/yaml_parser/simple_yaml_parser.cpp
     ./src/srrg_system_utils/system_utils.cpp
     ./src/srrg_path_map/base_path_search.cpp
     ./src/srrg_path_map/distance_map_path_search.cpp
     ./src/srrg_path_map/dijkstra_path_search.cpp
     ./src/srrg_path_map/path_map.cpp
+    ./src/srrg_path_map/path_map_utils.cpp
     ./src/srrg_localizer2d/localization_filter.cpp
     ./src/srrg_system_utils/system_utils.cpp
     ./src/srrg_path_map/base_path_search.cpp
@@ -96,6 +98,14 @@ else(qibuild_DIR)
     ros/srrg_localizer2d_ros/src/srrg_localizer2d_node.cpp
   )
 
+  add_executable(spqrel_planner_node
+    ros/spqrel_planner/src/planner.cpp
+    ros/spqrel_planner/src/ros_planner.cpp
+    ros/spqrel_planner/src/ros_planner_node.cpp
+    ros/spqrel_planner/src/dynamic_map.cpp
+  )
+
+
 
   ## Add cmake target dependencies of the executable
   ## same as for the library above
@@ -106,8 +116,21 @@ else(qibuild_DIR)
     spqrel_navigation_generate_messages_cpp
   )
 
+  add_dependencies(spqrel_planner_node 
+    srrg_ros
+    ${${PROJECT_NAME}_EXPORTED_TARGETS} 
+    ${catkin_EXPORTED_TARGETS}
+    spqrel_navigation_generate_messages_cpp
+  )
+
   ## Specify libraries to link a library or executable target against
   target_link_libraries(srrg_localizer2d_node
+    srrg_ros
+    ${catkin_LIBRARIES}
+    ${OpenCV_LIBS} 
+  )
+
+  target_link_libraries(spqrel_planner_node
     srrg_ros
     ${catkin_LIBRARIES}
     ${OpenCV_LIBS} 
@@ -137,18 +160,13 @@ else(qibuild_DIR)
   # )
 
 
-
-
-  
-
-
   #############
   ## Install ##
   #############
 
 
   ## Mark executables and/or libraries for installation
-  install(TARGETS srrg_localizer2d_node srrg_ros # ros_planner_node
+  install(TARGETS srrg_localizer2d_node spqrel_planner_node srrg_ros 
     ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
     LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
     RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

@@ -30,8 +30,6 @@ INCLUDE_DIRECTORIES(${EIGEN3_INCLUDE_DIR})
 FIND_PACKAGE(OpenCV)
 INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
 
-set(SPQREL_NAV_SRC "$ENV{HOME}/src/spqrel_navigation/src")
-
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
@@ -149,7 +147,8 @@ include_directories(
 # add_dependencies(srrg_localizer2d_ros ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-add_executable(ros_planner_node 
+add_executable(spqrel_planner_node
+  src/planner.cpp
   src/ros_planner.cpp
   src/ros_planner_node.cpp
   ${SPQREL_NAV_SRC}/srrg_system_utils/system_utils.cpp
@@ -164,13 +163,13 @@ add_executable(ros_planner_node
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(srrg_localizer2d_node 
+add_dependencies(spqrel_planner_node 
   ${${PROJECT_NAME}_EXPORTED_TARGETS} 
   ${catkin_EXPORTED_TARGETS}
 )
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(srrg_localizer2d_node
+target_link_libraries(spqrel_planner_node 
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS} 
 )

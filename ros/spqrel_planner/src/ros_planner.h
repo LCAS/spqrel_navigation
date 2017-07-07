@@ -19,6 +19,7 @@
 
 #include "dynamic_reconfigure/server.h"
 
+#include "planner.h"
 
 
 namespace spqrel_navigation {
@@ -28,7 +29,7 @@ using namespace std;
 /**
      class that implements a ROS planning node.
    */
-class ROSPlanner : public GridPlanner{
+class ROSPlanner {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     //! initializes the localizer on the node handle provided
@@ -40,10 +41,10 @@ public:
     void setROSParams();
 
     //! init stuff
-    virtual void init();
+    void init();
 
-    //! call this after construction if you want to have a gui
-    void initGUI();
+    //! quit stuff
+    void quit();
 
     //!setters fot common parameters
     inline const std::string& baseFrameId() const { return _base_frame_id;}
@@ -127,8 +128,8 @@ protected:
     move_base_msgs::MoveBaseActionResult _result;
 
     //Dynamic Reconfigure server and function to enable runtime parameters tuning
-    dynamic_reconfigure::Server<thin_navigation::ThinNavigationConfig> _server;
-    dynamic_reconfigure::Server<thin_navigation::ThinNavigationConfig>::CallbackType _function;
+//    dynamic_reconfigure::Server<thin_navigation::ThinNavigationConfig> _server;
+//    dynamic_reconfigure::Server<thin_navigation::ThinNavigationConfig>::CallbackType _function;
 
     
     Eigen::Vector3f _map_origin;    //< world coordinates of the upper left pixel
@@ -153,7 +154,7 @@ protected:
     void setCancelCallback(const actionlib_msgs::GoalID& msg);
 
     //! handles dynamic_reconfigure messages
-    void dynamicReconfigureCallback(thin_navigation::ThinNavigationConfig &config, uint32_t level);
+//    void dynamicReconfigureCallback(thin_navigation::ThinNavigationConfig &config, uint32_t level);
 
 
     void stopRobot();
@@ -161,22 +162,10 @@ protected:
     // called when the map is updated. causes some overhead
     void mapMessageCallback(const nav_msgs::OccupancyGrid& msg);
 
-    // GUI stuff
-    //! callback fot the mouse, used to set the robot pose
-    //! when in set_pose mode, left click sets the pose
-    //! right click sets the orientation
-    static void onMouse( int event, int x, int y, int, void* );
-    
-    //! handles the keyboard
-    //!  "s": toggles setGoal mode
-    //!  "d": toggles map mode (distance/occupancy)
-    void handleGUIInput();
-
     //! computes the average computation time of the last n updates
     double cycleLatency() const;
 
     //! shows the gui stuff
-    void handleGUIDisplay();
     bool _use_gui;           //! handled internally
     bool _show_distance_map; //! if 1 in the gui shows the distance map. (to be toggled with "d")
     bool _force_redisplay;   //! if toggled to one forces the display and sends out all messages
@@ -186,7 +175,7 @@ protected:
     int _wait;
     void executePath();
 
-    GradientController* _gradient_controller;
+    Planner _planner;
 };
 
 }

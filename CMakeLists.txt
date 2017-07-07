@@ -23,7 +23,9 @@ else(qibuild_DIR)
     roscpp
     cv_bridge
     tf
+    move_base_msgs
     message_generation
+    dynamic_reconfigure
   )
 
   set(CMAKE_CXX_FLAGS "-std=c++11")

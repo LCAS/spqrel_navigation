@@ -23,6 +23,7 @@ else(qibuild_DIR)
     roscpp
     cv_bridge
     tf
+    move_base_msgs
     message_generation
   )
 

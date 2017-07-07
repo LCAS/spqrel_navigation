@@ -25,6 +25,7 @@ else(qibuild_DIR)
     tf
     move_base_msgs
     message_generation
+    dynamic_reconfigure
   )
 
   set(CMAKE_CXX_FLAGS "-std=c++11")

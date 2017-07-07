@@ -13,7 +13,7 @@ int main(int argc, char **argv){
 
     //_map_service_id
     std::string map_service_id;
-    private_nh.param("map_service_id", map_service_id, std::string("static_map"));
+    private_nh.param("map_service_id", map_service_id, std::string("/static_map"));
     rosplanner->setMapServiceId(map_service_id);
     cout << "ros_planner: [string] _map_service_id: " << map_service_id << endl;
 

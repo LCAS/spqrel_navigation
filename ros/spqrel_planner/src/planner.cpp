@@ -19,6 +19,12 @@ using namespace std;
     _goal = Eigen::Vector2i(0,0);
     _robot_pose = Eigen::Vector3f(0.,0.,0.);
 
+    _safety_region = 1.0;
+    _robot_radius = 0.4;
+    _min_cost = 20;
+    _max_cost = 100;
+
+
     _move_enabled = true;
 //    _collision_protection_enabled = true; _collision_protection_desired = true;
     
@@ -33,6 +39,7 @@ using namespace std;
     _use_gui=true;
     cv::namedWindow( "spqrel_planner", 0 );
     cv::setMouseCallback( "spqrel_planner", &Planner::onMouse, this );
+    handleGUIDisplay();
     std::cerr << "GUI initialized" << std::endl;
   }
 
@@ -109,29 +116,30 @@ using namespace std;
     }
   }
 
-  void Planner::handleGUIDisplay() {
+  void Planner::handleGUIDisplay_OLD() {
     if (_use_gui) {
-      RGBImage img;
-      cv::cvtColor(_map_image, img, CV_GRAY2BGR);
-    cv::Mat xxx(100,100,CV_8UC1);
+      //RGBImage img;
+      //cv::cvtColor(_map_image, img, CV_GRAY2BGR);
 
-cout << " ... here 0 ..." << endl; 
+
+      cv::Mat xxx(100,100,CV_8UC1);
+
+cout << " ... before cv::imshow ..." << endl;
 
       cv::imshow("spqrel_planner", xxx);
 
-cout << " ... here 1 ..." << endl; 
-        cv::waitKey(-1);
+cout << " ... after cv::imshow ..." << endl;
+
+        cv::waitKey(100);
     }  
 
 
   }
 
 
-  void Planner::handleGUIDisplay_OLD() {
+  void Planner::handleGUIDisplay() {
 
     if (_use_gui) {
-
-cout << " ... here 1 ..." << endl;
 
       FloatImage shown_image;
       switch(_what_to_show){
@@ -158,14 +166,10 @@ cout << " ... here 1 ..." << endl;
         shown_image=_cost_image*(1.f/_max_cost);
         break;
       }
-
-cout << " ... here 2 ..." << endl;
       
       // Drawing goal
       if (_have_goal)
 	    cv::circle(shown_image, cv::Point(_goal.y(), _goal.x()), 3, cv::Scalar(0.0f));
-
-cout << " ... here 3 ... robot pose " << _robot_pose_image.x() << " " << _robot_pose_image.y() << endl;
 
         // Drawing current pose
         cv::rectangle(shown_image,
@@ -188,8 +192,6 @@ cout << " ... here 3 ... robot pose " << _robot_pose_image.x() << " " << _robot_
         }
       }
 
-cout << " ... here 4 ... laser points " << _laser_points.size() << endl;
-
       //Draw laser
       for (size_t i=0; i<_laser_points.size(); i++){
         Eigen::Vector2f lp=v2t(_robot_pose)* _laser_points[i];
@@ -199,8 +201,6 @@ cout << " ... here 4 ... laser points " << _laser_points.size() << endl;
           continue;
         cv::circle(shown_image, cv::Point(c, r), 3, cv::Scalar(1.0f));
       }
-
-cout << " ... here 5 ..." << endl;
       
       char buf[1024];
       sprintf(buf, " MoveEnabled: %d", _move_enabled);
@@ -210,20 +210,14 @@ cout << " ... here 5 ..." << endl;
       sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
       cv::putText(shown_image, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
 
-cout << " ... here 6 ... " << shown_image.cols << endl;      
       cv::imshow("spqrel_planner", shown_image);
 
-cout << " ... here 7 ..." << endl;
-
-    }  
-
-cout << " ... here 9 ..." << endl;
-
+    }
     
   }
   
   void Planner::setMapFromImage(UnsignedCharImage& map_image, float map_resolution,
-    Eigen::Vector3f map_origin, int occ_threshold, int free_threshold) {
+    Eigen::Vector3f map_origin, float occ_threshold, float free_threshold) {
 
 
     std::cerr << "Set map from image " << map_image.rows << "x" << map_image.cols << std::endl;
@@ -300,10 +294,14 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
     std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> GOAL CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
 
     // we receive the goal in world coordinates [m]
+    _goal_w = vgoal;
 
-    Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(vgoal);
+    Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(_goal_w);
 
-    _goal = world2grid(Eigen::Vector2f(goal_transform.translation().x(), goal_transform.translation().y()));
+    Eigen::Vector3f goal_pose_img = t2v(goal_transform); // image coordinates
+
+    _goal = world2grid(Eigen::Vector2f(goal_pose_img.x(), goal_pose_img.y()));  // pixel
+
 
     _have_goal = true;
   }
@@ -374,11 +372,12 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
     
     setExternalCollisionProtectionEnabled(true);
 #endif
-    
+
+/*
     _stop_thread=false;
     _servicesMonitorThread = std::thread(&Planner::servicesMonitorThread, this);
     std::cerr << "Planner Services Monitor Thread launched." << std::endl;
-
+*/
   }
 
   void Planner::unsubscribeServices(){
@@ -387,9 +386,11 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
     _subscriber_move_enabled.disconnect(_signal_move_enabled_id);
     _subscriber_collision_protection_desired.disconnect(_signal_collision_protection_desired_id);
 #endif
+
+/*
     _stop_thread=true;
     _servicesMonitorThread.join();
-
+*/
   }
   
 
@@ -399,42 +400,28 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
     //_motion_service.call<void>("stopMove");
     //setExternalCollisionProtectionEnabled(true);
   }
-/*
-  void Planner::setExternalCollisionProtectionEnabled(bool value) {
-    if (value)
-      std::cerr << "Enabling Pepper self collision protection" << std::endl;
-    else
-      std::cerr << "Warning: disabling Pepper self collision protection" << std::endl;
-    _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", value);
-    _collision_protection_enabled = value;
-    _memory_service.call<void>("raiseEvent", "Planner/ExternalCollisionProtectionEnabled",_collision_protection_enabled);
-
-  }
-*/
 
 
-  void Planner::servicesMonitorThread() {
-    
-    while (!_stop_thread){
+  void Planner::plannerStep() {
+
+
+      if (!_have_goal && !_use_gui)
+          return;
+
       std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
-#if 0
-      //get robot localization
-      qi::AnyValue value = _memory_service.call<qi::AnyValue>("getData", "NAOqiLocalizer/RobotPose");
-      srrg_core::FloatVector robot_pose_floatvector = value.toList<float>();
-
-#endif
 
       Eigen::Vector3f robot_pose_vector = _robot_pose;
       std::cerr << "Robot pose: " << robot_pose_vector.transpose() << std::endl;
-      
+
       Eigen::Isometry2f robot_pose_transform=_image_map_origin_transform_inverse*v2t(robot_pose_vector);
-      _robot_pose = t2v(robot_pose_transform); // image coordinates
 
 
-      std::cerr << "Image pose [m]: " << _robot_pose.transpose() << std::endl;
+      _robot_pose_image_m = t2v(robot_pose_transform); // image coordinates
 
-      _robot_pose_image = world2grid(Eigen::Vector2f(_robot_pose.x(), _robot_pose.y()));
+      std::cerr << "Image pose [m]: " << _robot_pose_image_m.transpose() << std::endl;
+
+      _robot_pose_image = world2grid(Eigen::Vector2f(_robot_pose_image_m.x(), _robot_pose_image_m.y()));
 
       std::cerr << "Image pose [pixel]: " << _robot_pose_image.transpose() << std::endl;
 
@@ -447,11 +434,20 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
         _dmap_calculator.setOutputPathMap(_distance_map);
         _dmap_calculator.init();
         _max_distance_map_index = _dmap_calculator.maxIndex();
+
+        cout << "   _max_distance_map_index " << _max_distance_map_index << endl;
+
         _dmap_calculator.compute();
         _distance_map_backup=_distance_map.data();
         cout << "Dmap_calculator init." << endl;
-        _restart = false;	
-      } 
+        _restart = false;
+
+        _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
+        FloatImage shown_image=_distance_image*(1./_safety_region);
+        cv::imwrite("debug_distmap.png",_distance_image);
+        cv::imwrite("debug_indices.png",_indices_image);
+
+      }
 
       std::chrono::steady_clock::time_point time_dmap_start = std::chrono::steady_clock::now();
       _distance_map.data()=_distance_map_backup;
@@ -464,8 +460,8 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
           _dyn_map.compute();
           Vector2iVector obstacle_points;
           _dyn_map.getOccupiedCells(obstacle_points);
-          
-          
+
+
           _dmap_calculator.setPoints(obstacle_points, _max_distance_map_index);
           _dmap_calculator.compute();
 
@@ -476,17 +472,17 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
 
       _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
       distances2cost(_cost_image,
-	         _distance_image,
-	         _robot_radius,
-	         _safety_region,
-	         _min_cost,
-	         _max_cost);
+             _distance_image,
+             _robot_radius,
+             _safety_region,
+             _min_cost,
+             _max_cost);
+
+      // cv::imwrite("debug_map.png",_map_image);
 
       std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
       std::cerr << "DMapCalculator: "
-		<< std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
-      
-
+        << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
 
 
       if (_have_goal){
@@ -501,14 +497,18 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
         std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
 
 
+        cerr << "Goal [m]: " << _goal_w.transpose() << endl;
         cerr << "Goal [pixel]: " << _goal.transpose() << endl;
 
+
+
         std::cerr << "PathCalculator: "
-	          << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl;
+              << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl;
 
         _path.clear();
         // Filling path
         PathMapCell* current=&_path_map(_robot_pose_image.x(), _robot_pose_image.y());
+
         while (current&& current->parent && current->parent!=current) {
           PathMapCell* parent=current->parent;
           _path.push_back(Eigen::Vector2i(current->r, current->c));
@@ -518,36 +518,49 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
         cerr << "Path size: " << _path.size() << endl;
         publishPath();
 
-        float linear_vel, angular_vel;
-        computeControlToWaypoint(linear_vel, angular_vel);
+        _linear_vel=0; _angular_vel=0;
+        computeControlToWaypoint(_linear_vel, _angular_vel);
         if (_move_enabled){
 
           //apply vels
-          std::cerr << "Applying vels: " << linear_vel  << " " << angular_vel << std::endl;
-          // TODO _motion_service.call<void>("move", linear_vel,0,angular_vel);
+          std::cerr << "Applying vels: " << _linear_vel  << " " << _angular_vel << std::endl;
+
         }else{
           _prev_v = 0;
           _prev_w = 0;
-          // TODO _motion_service.call<void>("stopMove");
+
 
         } // _move_enabled
-	
+
       } // _have_goal //else nothing to compute
 
+
+
       handleGUIDisplay();
-    
+
       handleGUIInput();
 
-    
+
       std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
       int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
       std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
-      if (cycle_ms < _cycle_time_ms)
-        usleep((_cycle_time_ms-cycle_ms)*1e3);
+//      if (cycle_ms < _cycle_time_ms)
+//        usleep((_cycle_time_ms-cycle_ms)*1e3);
 
 
-     if (!_have_goal) // sleep 1 sec
-        usleep(1e6);
+//     if (!_have_goal) // sleep 1 sec
+//        usleep(1e6);
+
+
+  }
+
+
+
+  void Planner::servicesMonitorThread() {
+    
+    while (!_stop_thread){
+
+        plannerStep();
 
     } // main while
 
@@ -582,9 +595,26 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
     }
 
     Eigen::Vector2f nextwp_world = grid2world(nextwp);
-    Eigen::Vector2f robot_pose_xy(_robot_pose.x(), _robot_pose.y());
+    Eigen::Vector2f robot_pose_xy(_robot_pose_image_m.x(), _robot_pose_image_m.y());
     Eigen::Vector2f distance_goal = nextwp_world - robot_pose_xy;
-    float angle_goal = normalize(atan2(distance_goal.y(),distance_goal.x()) - _robot_pose.z());
+
+    cerr << "   robot_pose: " << robot_pose_xy.transpose() << endl;
+    cerr << "   nextwp: " << nextwp_world.transpose() << endl;
+
+/*
+    Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(_goal_w);
+
+    Eigen::Vector3f goal_pose_img = t2v(goal_transform); // image coordinates
+
+    _goal = world2grid(Eigen::Vector2f(goal_pose_img.x(), goal_pose_img.y()));  // pixel
+*/
+
+
+    cerr << "   angle diff = " << atan2(distance_goal.y(),distance_goal.x()) << " " <<  _robot_pose_image_m.z() << endl;
+
+
+
+    float angle_goal = normalize(atan2(distance_goal.y(),distance_goal.x()) - _robot_pose_image_m.z());
     float goal_distance_threshold = 0.3;
     if (distance_goal.norm() < goal_distance_threshold){
       // std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to goal: " << nextwp.transpose() << std::endl;

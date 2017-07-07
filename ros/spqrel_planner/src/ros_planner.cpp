@@ -141,7 +141,7 @@ ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
     _listener = listener;
     if (! _listener)
         _listener = new tf::TransformListener;
-    _global_frame_id = "map";
+    _global_frame_id = "/map";
     _base_frame_id = "base_footprint_frame";
     _command_vel_topic = "cmd_vel";
     _temp_topic = "next_pose";
@@ -158,10 +158,8 @@ ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
     _map_origin.setZero();
     _timers.resize(10);
     _last_timer_slot=0;
-    _have_goal=false;
     _wait_cicle=100;
     _wait=0;
-    _have_wait=false;
     prev_tv=0;
     prev_rv=0;
     _action_result="";
@@ -278,49 +276,49 @@ void ROSPlanner::setROSParams() {
 
     double forced_max_range;
     _private_nh.param("forced_max_range", forced_max_range, 5.0);
-    cerr << "ros_planner: [float] _forced_max_range: " << forced_max_range << endl;
+    cerr << "spqrel_planner: [float] _forced_max_range: " << forced_max_range << endl;
     setForcedMaxRange(forced_max_range);
 
     double squared_endpoint_distance;
     _private_nh.param("squared_endpoint_distance",squared_endpoint_distance,0.01);
-    cerr << "ros_planner: [float] _squared_endpoint_distance: " << squared_endpoint_distance << endl;
+    cerr << "spqrel_planner: [float] _squared_endpoint_distance: " << squared_endpoint_distance << endl;
     setSquaredEndpointDistance(squared_endpoint_distance);
 
     int wait_cicle;
     _private_nh.param("wait_cicle",wait_cicle,100);
-    cerr << "ros_planner: [int] _wait_cycle: " << wait_cicle << endl;
+    cerr << "spqrel_planner: [int] _wait_cycle: " << wait_cicle << endl;
     setWaitCicle(wait_cicle);
 
 
     _private_nh.param("use_gui", _use_gui, false);
-    cerr << "thin_planner: [bool] _use_gui: " << _use_gui << endl;
+    cerr << "spqrel_planner: [bool] _use_gui: " << _use_gui << endl;
 
 
     //_command_vel_topic
     std::string command_vel_topic;
     _private_nh.param("command_vel_topic", command_vel_topic, std::string("cmd_vel"));
     setCommandVelTopic(command_vel_topic);
-    cerr << "thin_planner: [string] _command_vel_topic: " << command_vel_topic << endl;
+    cerr << "spqrel_planner: [string] _command_vel_topic: " << command_vel_topic << endl;
 
     //_global_frame_id
     std::string global_frame_id;
-    _private_nh.param("global_frame_id", global_frame_id, std::string("map"));
+    _private_nh.param("global_frame_id", global_frame_id, std::string("/map"));
     setGlobalFrameId(global_frame_id);
-    cerr << "thin_planner: [string] _global_frame_id: " << global_frame_id << endl;
+    cerr << "spqrel_planner: [string] _global_frame_id: " << global_frame_id << endl;
 
     //_base_frame_id
     std::string base_frame_id;
     _private_nh.param("base_frame_id", base_frame_id, std::string("base_link"));
     setBaseFrameId(base_frame_id);
-    cerr << "thin_planner: [string] _base_frame_id: " << base_frame_id << endl;
+    cerr << "spqrel_planner: [string] _base_frame_id: " << base_frame_id << endl;
 
     _private_nh.param("laser_topic", _laser_topic, std::string("base_scan"));
-    cerr << "thin_planner: [string] _laser_topic: " << _laser_topic << endl;
+    cerr << "spqrel_planner: [string] _laser_topic: " << _laser_topic << endl;
 
 
     bool publish_global_plan;
     _private_nh.param("publish_global_plan", publish_global_plan, false);
-    cerr << "thin_planner: [float] _publish_global_plan: " << publish_global_plan << endl;
+    cerr << "spqrel_planner: [float] _publish_global_plan: " << publish_global_plan << endl;
     // setCompute_global_path(publish_global_plan);
 
 }
@@ -366,14 +364,15 @@ void ROSPlanner::stopRobot() {
 
 void ROSPlanner::setCancelCallback(const actionlib_msgs::GoalID& msg) {
     ROS_INFO("Goal cancelled!!!");
-    _have_goal = false;
+    _planner.cancelGoal();
     stopRobot();
 }
 
 void ROSPlanner::preemptCB() {
     ROS_INFO("Goal Preempted!!!");
+     _planner.cancelGoal();
     stopRobot();
-    _have_goal = false;
+
 }
 
 void ROSPlanner::init() {
@@ -493,129 +492,17 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
     _planner.setLaserPoints(endpoints);
 
+    _planner.plannerStep();
+
+
+    geometry_msgs::Twist req_twist;
+    req_twist.linear.x = _planner._linear_vel;
+    req_twist.angular.z = _planner._angular_vel;
+    _cmd_vel_pub.publish(req_twist);
+    ros::spinOnce();
+
 }
 
-
-#if 0
-void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
-    //    std::cerr << "ROSPlanner::laserCallback 1 " << std::endl;
-
-    // if (!_as.isActive()) return;  // DOES NOT WORK WITH SIMPLE GOALS (RVIZ)
-
-    //   std::cerr << "ROSPlanner::laserCallback 2 " << std::endl;
-
-    double startTime, endTime;
-
-    startTime = getCPUTime( );
-    _last_observation_time = msg->header.stamp;
-    std::string error;
-
-    // laser pose on robot
-    if (! _listener->waitForTransform (_base_frame_id,
-                                       msg->header.frame_id,
-                                       _last_observation_time,
-                                       ros::Duration(0.5),
-                                       ros::Duration(0.5), &error)) {
-        cerr << "ROSPlanner: transform error from " << _base_frame_id << " to " << msg->header.frame_id << " : " << error << endl;
-        return;
-    }
-    tf::StampedTransform laser_pose_t;
-    _listener->lookupTransform(_base_frame_id,
-                               msg->header.frame_id,
-                               _last_observation_time,
-                               laser_pose_t);
-
-    Eigen::Vector3f laser_pose = convertPose(laser_pose_t);
-
-    
-    // // odometry
-    // std::string _odom_frame_id="/odom";
-    // if (! _listener->waitForTransform (_odom_frame_id,
-    // 				       _base_frame_id,
-    // 				       _last_observation_time,
-    // 				       ros::Duration(0.5),
-    // 				       ros::Duration(0.5),
-    // 				       &error)) {
-    //   cerr << "error: " << error << endl;
-    //   return;
-    // }
-
-    // tf::StampedTransform odom_pose_t;
-    // _listener->lookupTransform(_odom_frame_id,
-    // 			       _base_frame_id,
-    // 			       _last_observation_time,
-    // 			       odom_pose_t);
-    // Eigen::Vector3f odom_pose = convertPose(odom_pose_t);
-    double t0=getTime_ms();
-
-
-    Vector2fVector endpoints(msg->ranges.size());
-    rangesToEndpoints(endpoints, laser_pose, msg);
-    //endpoints.clear();
-    updateTemporaryMap(endpoints);
-    _nearest_pub.publish(_nearest_dynamic_object);
-    if(_have_goal){
-        std::string res= computePlan();
-
-        //std::cerr << "ROSPlanner::laserCallback -- executePath status: " << res << std::endl;
-
-        if ((res=="GO"|| res=="NEAR" || res=="ROTATION")){
-            executePath();
-            _have_wait=false;
-
-        }else if(res=="SUCCEEDED"){
-            _action_result=res;
-            _have_goal=false;
-            cout<<"GOAL REACHED"<<endl;
-            geometry_msgs::Twist req_twist;
-            req_twist.linear.x = 0;
-            req_twist.angular.z = 0;
-            _cmd_vel_pub.publish(req_twist);
-        }else{
-            if(res=="GO"|| res=="NEAR" || res=="ROTATION"){
-                executePath();
-            }
-            if(_have_wait){
-                _wait--;
-            }else{
-                _have_wait=true;
-                _wait=_wait_cicle;
-            }
-            if(_wait<0){
-                _have_wait=false;
-                _action_result=res;
-                _have_goal=false;
-                cout<<"NO POSSIBLE PLAN"<<endl;
-                geometry_msgs::Twist req_twist;
-                req_twist.linear.x = 0;
-                req_twist.angular.z = 0;
-                _cmd_vel_pub.publish(req_twist);
-            }
-        }
-    }
-    
-    double t1=getTime_ms();
-    _timers[_last_timer_slot]=t1-t0;
-    _last_timer_slot++;
-    if(_last_timer_slot>=_timers.size())
-        _last_timer_slot=0;
-
-    // printf("seq: %d, ts:%.9lf, [%f %f %f] [%f %f %f]\n",
-    // 	   msg->header.seq,
-    // 	   _last_observation_time.toSec(),
-    // 	   odom_pose.x(),
-    // 	   odom_pose.y(),
-    // 	   odom_pose.z(),
-    // 	   _robot_pose.x(),
-    // 	   _robot_pose.y(),
-    // 	   _robot_pose.z());
-    endTime = getCPUTime( );
-    PRINT_DEBUG("TOTAL TIME FOR PLAN"<<(endTime - startTime));
-    handleGUIDisplay();
-
-    handleGUIInput();
-}
-#endif
 
 
 #if 0
@@ -673,22 +560,29 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
                 msg.info.width,msg.info.height,msg.info.resolution);
 
 
-    UnsignedCharImage map_image(msg.info.width, msg.info.height);
+    UnsignedCharImage map_image(msg.info.width, msg.info.height);  // cols, rows
     int k=0;
+
     for(int c=0; c<map_image.cols; c++) {
+
         for(int r=0; r<map_image.rows; r++) {
+
             int d=msg.data[k];
-            if (d<0) {
+            if (d<0) { // unknown
                 d=127;
             }
             else if(d>=50)
                 d=0;
             else
                 d=255;
+            int c1 = r, r1 = msg.info.height-c;
             map_image.at<unsigned char>(r,c)=(unsigned char)(d);
             k++;
         }
     }
+
+    cv::transpose(map_image, map_image);
+    cv::flip(map_image, map_image, 0);
 
     tf::Pose pose;
     tf::poseMsgToTF(msg.info.origin, pose);
@@ -697,8 +591,7 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
                                getYaw(pose));
     cerr << "map origin: " << map_origin.transpose() << endl;
 
-    _planner.setMapFromImage(map_image,msg.info.resolution,map_origin,
-                             0.65, 0.05);
+    _planner.setMapFromImage(map_image,msg.info.resolution,map_origin, 0.65, 0.05);
 
 #if 0
     // setMap(map_image, msg.info.resolution, 10, 230);

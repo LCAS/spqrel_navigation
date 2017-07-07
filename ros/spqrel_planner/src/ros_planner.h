@@ -170,8 +170,8 @@ protected:
     bool _show_distance_map; //! if 1 in the gui shows the distance map. (to be toggled with "d")
     bool _force_redisplay;   //! if toggled to one forces the display and sends out all messages
     bool _set_goal;          //! set_goal mode (to be toggled with "s")
-    bool _have_goal;
-    bool _have_wait;
+    //bool _have_goal;
+    //bool _have_wait;
     int _wait;
     void executePath();
 

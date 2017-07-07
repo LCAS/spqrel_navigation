@@ -51,6 +51,12 @@ else(qibuild_DIR)
 #    DEPENDS Eigen3
   )
 
+  FIND_PACKAGE(OpenCV REQUIRED)
+  INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
+
+  message("OpenCV version: ${OPENCV_VERSION_MAJOR}.${OPENCV_VERSION_MINOR}.${OPENCV_VERSION_PATCH}")
+
+
   # Find Eigen3
   FIND_PACKAGE(Eigen3 REQUIRED)
   INCLUDE_DIRECTORIES(${EIGEN3_INCLUDE_DIR})
@@ -88,6 +94,7 @@ else(qibuild_DIR)
 
   target_link_libraries(srrg_ros
     ${catkin_LIBRARIES}
+    ${OpenCV_LIBS}
   )
 
 

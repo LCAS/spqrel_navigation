@@ -27,6 +27,7 @@ namespace naoqi_planner {
     _prev_v = 0.0; _prev_w = 0.0;
 
     _dyn_map.clearPoints();
+    _dyn_map.setTimeThreshold(30); //seconds
     _dyn_map.addBlindZone(30*M_PI/180, 60*M_PI/180);
     _dyn_map.addBlindZone(-30*M_PI/180, -60*M_PI/180);
   }

@@ -1,6 +1,6 @@
 #pragma once
 #include "srrg_types/types.hpp"
-
+#include <chrono>
 
 
 namespace naoqi_planner {
@@ -19,6 +19,7 @@ namespace naoqi_planner {
     //Map indexed by cell to have unique cells. A unique index is assigned to go back and forth from grid to map pose
     typedef std::map<Eigen::Vector2i, int, Vector2iComparator, Eigen::aligned_allocator< std::pair<Eigen::Vector2i,int> > > CellIndexMap;
     typedef std::map<int, Eigen::Vector2f, std::less<int>, Eigen::aligned_allocator< std::pair<int,Eigen::Vector2f> > > PointIndexMap;
+    typedef std::map<Eigen::Vector2i, std::chrono::steady_clock::time_point, Vector2iComparator, Eigen::aligned_allocator< std::pair<Eigen::Vector2i,std::chrono::steady_clock::time_point> > > CellTimeMap; 
     
   public:
     DynamicMap();
@@ -29,6 +30,7 @@ namespace naoqi_planner {
     inline void setDistanceThreshold(const float distance_threshold){_distance_threshold = distance_threshold;}
     inline void setRobotPose(const Eigen::Isometry2f& robot_pose) {_robot_pose = robot_pose;}
     void setCurrentPoints(const Vector2fVector& current_points);
+    inline void setTimeThreshold(const int time_threshold) {_time_threshold = time_threshold;}
 
     inline void addBlindZone(const float from, const float to) {
       _blind_zones.push_back(Eigen::Vector2f(from, to));
@@ -37,11 +39,12 @@ namespace naoqi_planner {
     void compute();
     void getOccupiedCells(Vector2iVector& occupied_cells);
     
-    inline void clearPoints(){ _occupied_cells.clear();}
+    inline void clearPoints(){ _occupied_cells.clear(); _time_cells.clear();}
     
   protected:
     // Set of unique occupied cells
     CellIndexMap _occupied_cells; 
+    CellTimeMap _time_cells;
     Eigen::Isometry2f _robot_pose;
     PointIndexMap _current_points;
     
@@ -51,7 +54,9 @@ namespace naoqi_planner {
     int _num_ranges; // 60 for pepper
     float _angle_increment;
     float _distance_threshold;
+    int _time_threshold; //in seconds
     Vector2fVector _blind_zones;
+    
     
     inline Eigen::Vector2i world2grid(const Eigen::Vector2f p) {
       return Eigen::Vector2i(p.x()*_map_inverse_resolution, p.y()*_map_inverse_resolution);
@@ -61,9 +66,6 @@ namespace naoqi_planner {
       return Eigen::Vector2f(p.x()*_map_resolution, p.y()*_map_resolution);
     }
 
-    //void addPoints(const Vector2iVector& points);
-
-    
     bool findCellByIndex(const CellIndexMap& cellIndexMap, const int index, Eigen::Vector2i& cell);
     void transformPointsToRobot(PointIndexMap& transformedPoints);
     void transformPointsToMap(const PointIndexMap& points);
@@ -74,6 +76,7 @@ namespace naoqi_planner {
 	       const PointIndexMap& points_previous,
 	       const FloatVector& ranges_current, const IntVector& indices_current,
 	       const PointIndexMap& points_current);
+    void updateTimes();
     void reindex();
 
   };

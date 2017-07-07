@@ -8,6 +8,7 @@ namespace naoqi_planner {
     _fov = 240*M_PI/180; //240 degrees for pepper
     _num_ranges = 60; // 60 for pepper
     _distance_threshold = 0.3;
+    _time_threshold = std::numeric_limits<int>::max(); 
   }
 
   void DynamicMap::setCurrentPoints(const Vector2fVector& current_points){
@@ -178,6 +179,7 @@ namespace naoqi_planner {
     
     // add new points - current scan 
     points_merged.insert(points_current.begin(), points_current.end());
+
   }
 
   void DynamicMap::reindex(){
@@ -231,6 +233,8 @@ namespace naoqi_planner {
 	  ranges_current, indices_current, _current_points);
 
     transformPointsToMap(points_merged);
+
+    updateTimes();
     
     reindex();
   }
@@ -242,6 +246,59 @@ namespace naoqi_planner {
      occupied_cells[i] = it->first;
     }
     
+  }
+
+  void DynamicMap::updateTimes(){
+    //Must be used before reindex
+    
+    CellTimeMap new_time_cells;
+    //First copy only remaining cells preserving old times
+    for (CellIndexMap::iterator it = _occupied_cells.begin(); it!=_occupied_cells.end(); it++){
+      Eigen::Vector2i cell = it->first;
+      CellTimeMap::iterator it_time =_time_cells.find(cell);
+      if (it_time != _time_cells.end()){
+	new_time_cells.insert(*it_time);
+      }//else should not happen
+    }    
+
+    //For current points set time to now()
+    for (PointIndexMap::iterator it=_current_points.begin(); it!=_current_points.end(); it++) {
+      int index = it->first;
+      Eigen::Vector2i cell;
+      if (findCellByIndex(_occupied_cells, index, cell)){
+	CellTimeMap::iterator it =new_time_cells.find(cell); 
+	if (it != new_time_cells.end()){
+	  //Cell already in time_cells, update time
+	  it->second = std::chrono::steady_clock::now();
+	}else {
+	  //Cell not in time_cells, insert
+	  new_time_cells.insert(std::make_pair(cell, std::chrono::steady_clock::now()));
+	}
+      } // else we do not store time for a cell that is not in _occuppied_cells
+    }
+
+    _time_cells = new_time_cells;
+        
+    //Deleting cells older than time threshold
+    std::chrono::steady_clock::time_point time_now =std::chrono::steady_clock::now();
+    for (CellTimeMap::iterator it=new_time_cells.begin(); it!=new_time_cells.end(); it++){
+      Eigen::Vector2i cell = it->first;
+      std::chrono::steady_clock::time_point time_cell = it->second;
+
+      int ellapsed_time = std::chrono::duration_cast<std::chrono::seconds>(time_now - time_cell).count();
+      //std::cerr << "Cell: " << cell.transpose() << " ellapsed_time: " << ellapsed_time;
+
+      if (ellapsed_time > _time_threshold){
+	_occupied_cells.erase(cell);
+	_time_cells.erase(cell);
+	//std::cerr << " Removing";
+      }
+      //std::cerr << std::endl;
+      
+    }
+
+    //std::cerr << "Size occ_cells: " << _occupied_cells.size() << " size time_cells: " << _time_cells.size() << std::endl; 
+
   }
   
   

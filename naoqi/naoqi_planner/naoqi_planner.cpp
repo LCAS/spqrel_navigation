@@ -320,10 +320,16 @@ namespace naoqi_planner {
       std::cerr << "Enabling Pepper self collision protection" << std::endl;
     else
       std::cerr << "Warning: disabling Pepper self collision protection" << std::endl;
-    _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", value);
-    _collision_protection_enabled = value;
-    _memory_service.call<void>("raiseEvent", "NAOqiPlanner/ExternalCollisionProtectionEnabled",_collision_protection_enabled);
 
+    try {
+      _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", value);
+      _collision_protection_enabled = value;
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/ExternalCollisionProtectionEnabled",_collision_protection_enabled);
+    } catch (qi::FutureUserException e) {
+      
+      std::cerr << e.what() << std::endl;
+
+    }
   }
 
   void NAOqiPlanner::servicesMonitorThread() {

@@ -24,6 +24,8 @@ namespace naoqi_planner {
     _move_enabled = true;
     _collision_protection_enabled = true; _collision_protection_desired = true;
     
+    _state = WaitingForGoal;
+
     _prev_v = 0.0; _prev_w = 0.0;
 
     _dyn_map.clearPoints();
@@ -179,11 +181,11 @@ namespace naoqi_planner {
       
       char buf[1024];
       sprintf(buf, " MoveEnabled: %d", _move_enabled);
-      cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+      cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
       sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
-      cv::putText(shown_image, buf, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+      cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
       sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
-      cv::putText(shown_image, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+      cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
 
       
       cv::imshow("pepper_planner", shown_image);
@@ -336,6 +338,7 @@ namespace naoqi_planner {
 
     
     while (!_stop_thread){
+      publishState();
       std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
       //get robot localization
@@ -430,7 +433,7 @@ namespace naoqi_planner {
 	}
 
 	publishPath();
-	
+		
 	float linear_vel, angular_vel;
 	computeControlToWaypoint(linear_vel, angular_vel);
 	if (_move_enabled){
@@ -515,7 +518,7 @@ namespace naoqi_planner {
         _prev_v = v;
         _prev_w = w;
         cancelGoal();
-        publishGoalReached();
+	setState(GoalReached);
         return;
       }
     }else {
@@ -577,15 +580,43 @@ namespace naoqi_planner {
 	
 	_memory_service.call<void>("insertData", "NAOqiPlanner/Path", path_vector);
 	_memory_service.call<void>("insertData", "NAOqiPlanner/Status", "PathFound");
-	_memory_service.call<void>("insertData", "NAOqiPlanner/ExecutionStatus", _path.size() * _map_inverse_resolution );
+	std::cerr << "PAthsize: " << _path.size() * _map_resolution << std::endl;
+	_memory_service.call<void>("insertData", "NAOqiPlanner/ExecutionStatus", _path.size() * _map_resolution );
       }else {
 	_memory_service.call<void>("insertData", "NAOqiPlanner/Status", "PathNotFound");
       }
     }
   }
 
-  void NAOqiPlanner::publishGoalReached(){
-    _memory_service.call<void>("raiseEvent", "NAOqiPlanner/GoalReached", true);
+  void NAOqiPlanner::publishState(){
+    if (_state==GoalReached){
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/Status", "GoalReached");
+      _state = WaitingForGoal;
+      return;
+    }
+
+    if (!_have_goal && _state!=WaitingForGoal){
+      _state = WaitingForGoal;
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/Status", "WaitingForGoal");
+      return;
+    }
+    
+    if (_have_goal) {
+      if (_path.size() && _state!=PathFound){
+	_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Status", "PathFound");
+	_state = PathFound;
+	return;
+      }
+      
+      if (!_path.size() && _state!=PathNotFound){
+	_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Status", "PathNotFound");
+	_state = PathNotFound;
+	return;
+      }
+      
+    }
+    
+    
   }
 
 }

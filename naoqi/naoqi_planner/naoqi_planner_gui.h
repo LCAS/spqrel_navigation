@@ -70,9 +70,9 @@ namespace naoqi_planner_gui {
     float _cycle_time_ms;
 
     // subscribers and publishers
-    qi::AnyObject _subscriber_goal_reached;
-    qi::SignalLink _signal_goal_reached_id;
-    void onGoalReached();
+    qi::AnyObject _subscriber_status;
+    qi::SignalLink _signal_status_id;
+    void onStatusChanged(qi::AnyValue value);
     qi::AnyObject _subscriber_collision_protection_enabled;
     qi::SignalLink _signal_collision_protection_enabled_id;
     void onExternalCollisionProtectionEnabled(qi::AnyValue value);

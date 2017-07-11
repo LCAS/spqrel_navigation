@@ -50,9 +50,13 @@ namespace naoqi_planner_gui {
     }
   }
 
-  void NAOqiPlannerGUI::onGoalReached(){
-    _have_goal = false;
-    _path.clear();
+  void NAOqiPlannerGUI::onStatusChanged(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> STATUS CHANGED CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    std::string state = value.asString();
+    if (state == "GoalReached" || state == "WaitingForGoal"){
+      _have_goal = false;
+      _path.clear();
+    }
   }
 
   void NAOqiPlannerGUI::onExternalCollisionProtectionEnabled(qi::AnyValue value){
@@ -69,9 +73,9 @@ namespace naoqi_planner_gui {
   void NAOqiPlannerGUI::subscribeServices(){
     _memory_service = _session->service("ALMemory");
 
-    //subscribe to goal changes
-    _subscriber_goal_reached = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/GoalReached");
-    _signal_goal_reached_id = _subscriber_goal_reached.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlannerGUI::onGoalReached, this))));
+    //subscribe to status changes
+    _subscriber_status = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Status");
+    _signal_status_id = _subscriber_status.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlannerGUI::onStatusChanged, this, _1))));
 
     //subscribe to collision protection changes
     _subscriber_collision_protection_enabled = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/ExternalCollisionProtectionEnabled");
@@ -83,7 +87,7 @@ namespace naoqi_planner_gui {
   }
 
   void NAOqiPlannerGUI::unsubscribeServices(){
-    _subscriber_goal_reached.disconnect(_signal_goal_reached_id);
+    _subscriber_status.disconnect(_signal_status_id);
     _stop_thread=true;
     _servicesMonitorThread.join();
   }
@@ -226,12 +230,12 @@ namespace naoqi_planner_gui {
 
     char buf[1024];
     sprintf(buf, " MoveEnabled: %d", _move_enabled);
-    cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+    cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
     sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
-    cv::putText(shown_image, buf, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
+    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
     sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
-    cv::putText(shown_image, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
-      
+    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);    
+    
     cv::imshow("pepper_planner_gui", shown_image);
   }  
 

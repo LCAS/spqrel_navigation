@@ -18,9 +18,8 @@
  Summary NAOqiPlanner Keys:
  - NAOqiPlanner/Goal: Goal is set in (x,y) meters coordinates wrt yaml file origin
  - NAOqiPlanner/Path: Path as a sequence of pixels (x,y)
- - NAOqiPlanner/Status: If goal is set, contains "PathFound" or "PathNotFound"
+ - NAOqiPlanner/Status: If goal is set, contains {WaitingForGoal, PathFound, PathNotFound, GoalReached}
  - NAOqiPlanner/ExecutionStatus: If goal is set, contains distance remaining to goal in m
- - NAOqiPlanner/GoalReached: Event raised with true value when goal is reached  
  - NAOqiPlanner/MoveEnabled: True or false to apply or not velocity commands to the robot
  - NAOqiPlanner/CollisionProtectionDesired: True or false to enable/disable Pepper self collision avoidance
  - NAOqiPlanner/Reset: Cancels goal and clears dynamic obstacles
@@ -29,7 +28,8 @@ namespace naoqi_planner {
   using namespace srrg_core;
 
   enum WhatToShow {Map, Distance, Cost};
- 
+  enum State {WaitingForGoal, PathFound, PathNotFound, GoalReached};
+
   class NAOqiPlanner {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -125,6 +125,8 @@ namespace naoqi_planner {
     std::atomic<bool> _stop_thread;
     float _cycle_time_ms; 
     void cancelGoal();
+    State _state;
+    inline void setState(State state) {_state = state;};
 
     // subscribers and publishers
     qi::AnyObject _subscriber_goal;
@@ -139,7 +141,7 @@ namespace naoqi_planner {
     qi::AnyObject _subscriber_reset;
     qi::SignalLink _signal_reset_id;
     void publishPath();
-    void publishGoalReached();
+    void publishState();
 
     //! GUI stuff
     bool _use_gui;

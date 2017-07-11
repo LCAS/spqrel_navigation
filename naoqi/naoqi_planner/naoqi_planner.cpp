@@ -244,7 +244,7 @@ namespace naoqi_planner {
     // we receive the goal in world coordinates [m]
 
     Eigen::Vector3f vgoal(goal[0], goal[1], 0);
-
+    std::cerr << "Setting goal [m]: " << vgoal.transpose() << std::endl;
     Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(vgoal);
 
     _goal = world2grid(Eigen::Vector2f(goal_transform.translation().x(), goal_transform.translation().y()));
@@ -560,15 +560,21 @@ namespace naoqi_planner {
 
   
   void NAOqiPlanner::publishPath() {
-    IntVector path_vector;
-    if (_path.size()){
-      path_vector.resize(_path.size()*2);
-      for (size_t i=0; i<_path.size(); i++){
-	path_vector[2*i] = _path[i].x();
-	path_vector[2*i+1] = _path[i].y();
+    if (_have_goal){
+      IntVector path_vector;
+      if (_path.size()){
+	path_vector.resize(_path.size()*2);
+	for (size_t i=0; i<_path.size(); i++){
+	  path_vector[2*i] = _path[i].x();
+	  path_vector[2*i+1] = _path[i].y();
+	}
+	
+	_memory_service.call<void>("insertData", "NAOqiPlanner/Path", path_vector);
+	_memory_service.call<void>("insertData", "NAOqiPlanner/Status", "PathFound");
+	_memory_service.call<void>("insertData", "NAOqiPlanner/ExecutionStatus", _path.size() * _map_inverse_resolution );
+      }else {
+	_memory_service.call<void>("insertData", "NAOqiPlanner/Status", "PathNotFound");
       }
-      
-      _memory_service.call<void>("insertData", "NAOqiPlanner/Path", path_vector);
     }
   }
 

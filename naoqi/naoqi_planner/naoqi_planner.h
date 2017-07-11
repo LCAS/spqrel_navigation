@@ -14,7 +14,17 @@
 #include "srrg_path_map/distance_map_path_search.h"
 #include "srrg_path_map/dijkstra_path_search.h"
 
-
+/**
+ Summary NAOqiPlanner Keys:
+ - NAOqiPlanner/Goal: Goal is set in (x,y) meters coordinates wrt yaml file origin
+ - NAOqiPlanner/Path: Path as a sequence of pixels (x,y)
+ - NAOqiPlanner/Status: If goal is set, contains "PathFound" or "PathNotFound"
+ - NAOqiPlanner/ExecutionStatus: If goal is set, contains distance remaining to goal in m
+ - NAOqiPlanner/GoalReached: Event raised with true value when goal is reached  
+ - NAOqiPlanner/MoveEnabled: True or false to apply or not velocity commands to the robot
+ - NAOqiPlanner/CollisionProtectionDesired: True or false to enable/disable Pepper self collision avoidance
+ - NAOqiPlanner/Reset: Cancels goal and clears dynamic obstacles
+ **/
 namespace naoqi_planner {
   using namespace srrg_core;
 

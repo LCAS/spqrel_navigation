@@ -83,4 +83,5 @@ qi_stage_lib(srrg_localizer2d_library)
 add_subdirectory(naoqi_sensor_utils)
 add_subdirectory(naoqi_localizer)
 add_subdirectory(naoqi_planner)
+add_subdirectory(naoqi_navigation_gui)
 

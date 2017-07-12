@@ -35,3 +35,5 @@
 build*
 naoqi/build*
 
+# Backup files
+*~

@@ -27,13 +27,14 @@ class myModule(ALModule):
     
     def goalreached_callback(self, strVarName, value):
         print "GOAL REACHED: ", strVarName, " ", value, " "
-        global goal_reached
-        goal_reached = 1
+        #global goal_reached
+        #goal_reached = 1
 
     def status_callback(self, strVarName, value):
         """callback when data change"""
         print "status", strVarName, " ", value, " "
-
+        global goal_reached
+        goal_reached = 1
 
     def _pythonPrivateMethod(self, param1, param2, param3):
         global goal_check
@@ -51,9 +52,11 @@ def get_distance_node_pose(node, pose):
 
 class topological_localiser(object):
     def __init__(self, pip,pport,topomap):
-        self.move_base_actions =['planner']
+        self.move_base_actions =['NAOqiPlanner/Goal']
         self.closest_node = 'none'
         self.current_node = 'none'
+        self.failed_to = 'none' #If it fails reaching one goal this variable stores the node it was trying to reach when failed
+        self.fail_code=0
         self.cancelled = False
         self.navigation_activated = False
         self.memProxy = ALProxy("ALMemory",pip,pport)
@@ -83,7 +86,7 @@ class topological_localiser(object):
         pre_curnod = self.current_node
         pre_clonod = self.closest_node
         val = self.memProxy.getData("NAOqiLocalizer/RobotPose")
-        print val
+        #print val
         dists=self.get_distances_to_pose(val)
         self.closest_node = dists[0]['node'].name
         if self.point_in_poly(dists[0]['node'], val):
@@ -91,21 +94,30 @@ class topological_localiser(object):
         else:
             self.current_node = 'none'
 
-       # if (pre_curnod != self.current_node) or (pre_clonod != self.closest_node):
-        print self.current_node, self.closest_node
+        if (pre_curnod != self.current_node) or (pre_clonod != self.closest_node):
+            print self.current_node, self.closest_node
 
         global goal_reached
         
         if goal_reached:
             if self.navigation_activated:
-                val = self.memProxy.getData("NAOqiPlanner/GoalReached")
-                if self.current_target == self.current_node:
-                    self.goal_reached = True
-                    self.cancelled=False
-                else:
-                    self.goal_reached = False
-                    #self.cancelled=True
-        
+                val = self.memProxy.getData("NAOqiPlanner/Status")
+                if val == 'GoalReached':
+                    if self.current_target == self.current_node:
+                        self.goal_reached = True
+                        self.cancelled= False
+                        self.failed_to = 'none'
+                        self.fail_code=0
+                    else:
+                        self.goal_reached = False
+                        self.cancelled=True
+                        self.failed_to = self.current_target
+                        self.fail_code=0
+                elif val == 'PathNotFound':
+                    self.cancelled=True
+                    self.failed_to = self.current_target
+                    self.fail_code=1
+                goal_reached=False
         self.loc_timer = Timer(0.5, self._localisation_timer)
         self.loc_timer.start()
 
@@ -120,12 +132,6 @@ class topological_localiser(object):
         o_node = get_node(self.map, self.closest_node)
         g_node = get_node(self.map, target)
         
-#        print "------------"
-#        print o_node
-#        print "------------"
-#        print g_node
-#        print "------------"
- 
         # Everything is Awesome!!!
         # Target and Origin are Different and none of them is None
         if (g_node is not None) and (o_node is not None) and (g_node.name != o_node.name) :
@@ -134,7 +140,6 @@ class topological_localiser(object):
             print route
             if route:
                 print "Navigating Case 1"
-#                result, inc = 
                 self.followRoute(route, target)
             else:
                 print "There is no route to this node check your edges ..."
@@ -144,10 +149,6 @@ class topological_localiser(object):
                 print "Target and Origin Nodes are the same"
             else:
                 print "Target or Origin Nodes were not found on Map"
-#                result=False
-#                inc=1
-#        tries+=inc
-#        rospy.loginfo("Navigating next try: %d", tries)
 
 
     """
@@ -181,11 +182,10 @@ class topological_localiser(object):
         # navigate to closest node waypoint (only when first action is not move base)
         if self.current_node == 'none' and a not in self.move_base_actions :
             if a not in self.move_base_actions:
-#                self.next_action = a
                 print 'Do planner to %s' %(self.closest_node)
                 inf = o_node.pose
                 self.current_target = Orig
-                nav_ok, inc= self.monitored_navigation(inf,'NAOqiPlanner/Goal')
+                nav_ok = self.monitored_navigation(inf,'NAOqiPlanner/Goal')
         else:
             if a not in self.move_base_actions :
                 action_server = 'NAOqiPlanner/Goal'
@@ -199,19 +199,12 @@ class topological_localiser(object):
                 if not move_base_act :
                     print "Action not taken, it is dangerous to move. Outputing success."
                     nav_ok = True
-                    inc = 0
                 else:
                     print "Getting to exact pose"
                     self.current_target = Orig
-                    nav_ok, inc = self.monitored_navigation(o_node.pose, action_server)
-#                    rospy.loginfo("going to waypoint in node resulted in")
-#                    print nav_ok
-#                
-        print "hey: ", rindex, " ", route_len, " ", self.cancelled
-        
-        
+                    nav_ok = self.monitored_navigation(o_node.pose, action_server)
+
         while rindex < route_len and not self.cancelled: #and nav_ok :
-            print "ho"
 #            #current action
             cedg = get_edge_from_id(self.map, route.source[rindex], route.edge_id[rindex])
 
@@ -228,21 +221,20 @@ class topological_localiser(object):
             cnode = get_node(self.map, cedg.node)
 
             print "From " + route.source[rindex] + " do " +  a + " to " + cedg.node
+            self.current_target = cedg.node
             inf = cnode.pose
-            nav_ok, inc = self.monitored_navigation(inf, a)
+            nav_ok = self.monitored_navigation(inf, a)
             rindex=rindex+1
 
         self.navigation_activated=False
-#
-#        result=nav_ok
-#        return result, inc
-#
-#
+        if nav_ok:
+            self.memProxy.raiseEvent("TopologicalNav/Status", "Success")
+        else:
+            self.memProxy.raiseEvent("TopologicalNav/Status", "Fail")
 
 
     def monitored_navigation(self, gpose, command):
-        inc = 0
-        result = True        
+
         self.goal_reached=False
 
         goal_pose=[gpose.position.x, gpose.position.y]
@@ -253,7 +245,20 @@ class topological_localiser(object):
         while not self.cancelled and not self.goal_reached :
             time.sleep(0.1)
 
-        return result, inc
+
+        if self.goal_reached:
+            nav_ok=True
+            self.memProxy.raiseEvent("TopologicalNav/Status", "PlannerSuccesful")
+        elif self.cancelled:
+            nav_ok=False
+            if self.fail_code==0:
+                failmsg="ReachedWrongNode "+self.failed_to
+                self.memProxy.raiseEvent("TopologicalNav/Status", failmsg)
+            if self.fail_code==1:
+                failmsg="PlannerFailedTo "+self.failed_to
+                self.memProxy.raiseEvent("TopologicalNav/Status", failmsg)
+        return nav_ok
+
 
     def point_in_poly(self,node,pose):
         x=pose[0]-node.pose.position.x
@@ -304,6 +309,8 @@ class topological_localiser(object):
         self.loc_timer.cancel()
         self.nav_timer.cancel()
         sys.exit(0)
+
+
 
 if __name__ == '__main__':
     """ 

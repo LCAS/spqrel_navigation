@@ -13,8 +13,6 @@ class myModule(ALModule):
   def datachanged(self, strVarName, value):
     """callback when data change"""
     print "datachanged", strVarName, " ", value, " "
-    for i in value:
-        print i
     global check
     check = 1
 
@@ -31,7 +29,7 @@ try:
   pythonModule2 = myModule("pythonModule2")
   prox = ALProxy("ALMemory")
   #prox.insertData("val",1) # forbiden, data is optimized and doesn't manage callback
-  prox.subscribeToEvent("NAOqiPlanner/Goal","pythonModule2", "datachanged") #  event is case sensitive !
+  prox.subscribeToEvent("TopologicalNav/Status","pythonModule2", "datachanged") #  event is case sensitive !
 
 except Exception,e:
   print "error"

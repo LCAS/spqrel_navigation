@@ -99,6 +99,8 @@ def draw_arrow(image, V1, V2, color, origin, arrow_magnitude=5, thickness=1, lin
 def draw_top_map(points, info, map2dimg):
     topmap_image = map2dimg.copy()
     height, width, channels = topmap_image.shape
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
 
     origin=[]
     origin.append(info['origin'][0])
@@ -117,6 +119,7 @@ def draw_top_map(points, info, map2dimg):
         xval = int((V1.x-origin[0])/info['resolution']) #(int(V1.x/info['resolution']))+origin[0]
         yval = int((origin[1]-V1.y)/info['resolution'])
         print xval, yval
+        cv2.putText(topmap_image,i.name,(int(xval), int(yval-5)), font, 0.3,(20,20,20),1,cv2.LINE_AA)
         cv2.circle(topmap_image, (int(xval), int(yval)), 10, (0,0,255,255), -1)
     
 

@@ -14,6 +14,7 @@ from naoqi import *
 myBroker=None
 goal_check = 0
 goal_reached = 0
+get_plan = 0
 
 # create python module
 class myModule(ALModule):
@@ -29,6 +30,10 @@ class myModule(ALModule):
         print "GOAL REACHED: ", strVarName, " ", value, " "
         #global goal_reached
         #goal_reached = 1
+
+    def get_plan_callback(self, strVarName, value):
+        get_plan=1
+
 
     def status_callback(self, strVarName, value):
         """callback when data change"""
@@ -72,11 +77,25 @@ class topological_localiser(object):
 
     def _nav_timer(self):
         global goal_check
+        global get_plan
+        
         if goal_check:
             goal = self.memProxy.getData("TopologicalNav/Goal")
             print "NEW GOAL " + goal
             goal_check = 0
             self.navigate(goal)
+
+        if get_plan:
+            goal = self.memProxy.getData("TopologicalNav/Goal")
+            route = self.get_route(goal)
+            if route:
+                self.memProxy.insertData("TopologicalNav/Route", route.__repr__())
+                self.memProxy.raiseEvent("TopologicalNav/PlanReady", "True")
+            else:
+                self.memProxy.raiseEvent("TopologicalNav/PlanReady", "False")
+                
+            get_plan=1
+            
 
         self.nav_timer = Timer(0.5, self._nav_timer)
         self.nav_timer.start()
@@ -121,6 +140,20 @@ class topological_localiser(object):
         self.loc_timer = Timer(0.5, self._localisation_timer)
         self.loc_timer.start()
 
+
+
+    def get_route(self, target):
+        o_node = get_node(self.map, self.closest_node)
+        g_node = get_node(self.map, target)
+        
+        # Everything is Awesome!!!
+        # Target and Origin are Different and none of them is None
+        if (g_node is not None) and (o_node is not None) and (g_node.name != o_node.name) :
+            rsearch = TopologicalRouteSearch(self.map)
+            route = rsearch.search_route(o_node.name, target)
+            print route
+            
+        return route
 
 
     def navigate(self, target):
@@ -335,8 +368,9 @@ if __name__ == '__main__':
       pythonModule = myModule("pythonModule")
       prox = ALProxy("ALMemory")
       prox.subscribeToEvent("TopologicalNav/Goal","pythonModule", "nav_goal_callback")
+      prox.subscribeToEvent("TopologicalNav/GetPlan","pythonModule", "get_plan_callback")      
       prox.subscribeToEvent("NAOqiPlanner/GoalReached","pythonModule", "goalreached_callback")
-      prox.subscribeToEvent("NAOqiPlanner/Status","pythonModule", "status_callback")    
+      prox.subscribeToEvent("NAOqiPlanner/Status","pythonModule", "status_callback")
     
     except Exception,e:
       print "error"

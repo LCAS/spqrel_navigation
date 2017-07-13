@@ -11,6 +11,7 @@ qi_use_lib(naoqi_navigation_gui_library
   ALPROXIES
   OPENCV2_CORE
   OPENCV2_HIGHGUI
+  OPENCV2_IMGPROC
 )
 
 qi_stage_lib(naoqi_navigation_gui_library)

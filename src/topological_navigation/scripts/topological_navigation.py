@@ -32,6 +32,8 @@ class myModule(ALModule):
         #goal_reached = 1
 
     def get_plan_callback(self, strVarName, value):
+        print "New plan", strVarName, " ", value, " "
+        global get_plan
         get_plan=1
 
 
@@ -86,15 +88,30 @@ class topological_localiser(object):
             self.navigate(goal)
 
         if get_plan:
-            goal = self.memProxy.getData("TopologicalNav/Goal")
+            goal = self.memProxy.getData("TopologicalNav/GetPlan")
             route = self.get_route(goal)
+            plan=[]
+            for i in range(len(route.source)):
+                step={}
+                cn = get_node(self.map, route.source[i])
+                step['from']=route.source[i]
+                for j in cn.edges:
+                    if j.edge_id == route.edge_id[i]:
+                        step['edge_id']=j.edge_id
+                        step['action']=j.action
+                        step['dest']={}
+                        step['dest']['node']=j.node
+                        nn=get_node(self.map,j.node)
+                        step['dest']['x']=nn.pose.position.x
+                        step['dest']['y']=nn.pose.position.y                        
+                plan.append(step)
             if route:
-                self.memProxy.insertData("TopologicalNav/Route", route.__repr__())
+                self.memProxy.insertData("TopologicalNav/Route", plan.__repr__())
                 self.memProxy.raiseEvent("TopologicalNav/PlanReady", "True")
             else:
                 self.memProxy.raiseEvent("TopologicalNav/PlanReady", "False")
                 
-            get_plan=1
+            get_plan=0
             
 
         self.nav_timer = Timer(0.5, self._nav_timer)
@@ -145,7 +162,7 @@ class topological_localiser(object):
     def get_route(self, target):
         o_node = get_node(self.map, self.closest_node)
         g_node = get_node(self.map, target)
-        
+        print "get route", self.closest_node, target
         # Everything is Awesome!!!
         # Target and Origin are Different and none of them is None
         if (g_node is not None) and (o_node is not None) and (g_node.name != o_node.name) :

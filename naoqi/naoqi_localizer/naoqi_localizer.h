@@ -48,6 +48,8 @@ namespace naoqi_localizer {
   protected:
 
     qi::SessionPtr _session;
+    qi::AnyObject _memory_service;
+    qi::AnyObject _motion_service;
 
     Eigen::Vector3f _old_odom_pose; //< stores the previous odom pose, used to compute the control 
     Eigen::Vector3f _laser_pose; //< stores the laser pose from the system
@@ -82,14 +84,17 @@ namespace naoqi_localizer {
     */
     //! handles a laser scan and updates the filter
     std::thread _servicesMonitorThread;
-    void servicesMonitorThread(qi::AnyObject memory_service, qi::AnyObject motion_service);
+    void servicesMonitorThread();
     std::atomic<bool> _stop_thread;
     int _cycle_time_ms;
-    /*
+    
     //! handles the set-pose-estimate message from outside
     //! puts all partcles in the neighborhood of the pose in msg
-    void setPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
-
+    void onPoseChanged(qi::AnyValue value);
+    qi::AnyObject _subscriber_pose;
+    qi::SignalLink _signal_pose_id;
+    
+    /*
     //! triggers global localization
     bool globalLocalizationCallback(std_srvs::Empty::Request& req,
     std_srvs::Empty::Response& res);

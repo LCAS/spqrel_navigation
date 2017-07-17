@@ -1,9 +1,9 @@
-#include "naoqi_planner_gui.h"
+#include "naoqi_navigation_gui.h"
 
-namespace naoqi_planner_gui {
+namespace naoqi_navigation_gui {
 
 
-  NAOqiPlannerGUI::NAOqiPlannerGUI(qi::SessionPtr session){
+  NAOqiNavigationGUI::NAOqiNavigationGUI(qi::SessionPtr session){
     _session = session;
 
     if (! _session)
@@ -20,37 +20,83 @@ namespace naoqi_planner_gui {
     _move_enabled = true;
     _collision_protection_enabled = true; _collision_protection_desired = true;
 
+    _set_pose = false;
     _path.clear();
   }
 
-  void NAOqiPlannerGUI::initGUI(){
+  void NAOqiNavigationGUI::initGUI(){
     cv::namedWindow( "pepper_planner_gui", 0 );
-    cv::setMouseCallback( "pepper_planner_gui", &NAOqiPlannerGUI::onMouse, this );
+    cv::setMouseCallback( "pepper_planner_gui", &NAOqiNavigationGUI::onMouse, this );
     std::cerr << "GUI initialized" << std::endl;
   }
 
-  void NAOqiPlannerGUI::onMouse( int event, int x, int y, int, void* v){
-    NAOqiPlannerGUI* n=reinterpret_cast<NAOqiPlannerGUI*>(v);
-  
-    if( event == cv::EVENT_LBUTTONDOWN ) {
-      std::cerr << "Left Click!" << std::endl;
-      n->_goal = Eigen::Vector2i(y,x);
-      n->_have_goal = true;
-      std::cerr << "Setting goal: " << n->_goal.transpose() << std::endl;
+  void NAOqiNavigationGUI::onMouse( int event, int x, int y, int, void* v){
+    NAOqiNavigationGUI* n=reinterpret_cast<NAOqiNavigationGUI*>(v);
+    if (n->_set_pose) {
+      if( event == cv::EVENT_LBUTTONDOWN ) {
+	std::cerr << "Left Click!" << std::endl;
+	n->_robot_pose_image = Eigen::Vector2i(y,x);
 
-      Eigen::Vector2f goalf = n->grid2world(n->_goal);
-      Eigen::Vector3f vgoal(goalf.x(), goalf.y(), 0);
-      Eigen::Isometry2f goal_origin = v2t(n->_image_map_origin)*v2t(vgoal);
+	Eigen::Vector2f p=n->grid2world(n->_robot_pose_image);
+	Eigen::Vector3f pose(p.x(), p.y(), 0);
+	Eigen::Isometry2f pose_origin = v2t(n->_image_map_origin)*v2t(pose);
+	Eigen::Vector3f new_pose = t2v(pose_origin);
       
-      FloatVector goal;
-      goal.push_back(goal_origin.translation().x());
-      goal.push_back(goal_origin.translation().y());
-      qi::AnyValue value = qi::AnyValue::from(goal);
-      n->_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Goal", value);
+	Eigen::Isometry2f old_robot_pose_transform=v2t(n->_image_map_origin)*v2t(n->_robot_pose);
+	Eigen::Vector3f old_robot_pose = t2v(old_robot_pose_transform);
+
+	new_pose.z() = old_robot_pose.z(); //preserve angle, just x,y changes
+	std::cerr << "Setting pose: " << new_pose.transpose() << std::endl;
+	FloatVector vpose;
+	vpose.push_back(new_pose.x());
+	vpose.push_back(new_pose.y());
+	vpose.push_back(new_pose.z());
+	qi::AnyValue value = qi::AnyValue::from(vpose);
+	n->_memory_service.call<void>("raiseEvent", "NAOqiLocalizer/SetPose", value);
+
+      }
+      if( event == cv::EVENT_RBUTTONDOWN ) {
+	std::cerr << "Right Click!" << std::endl;
+	Eigen::Vector2f p_angle=n->grid2world(Eigen::Vector2i(y,x));
+	Eigen::Vector2f p_pose=n->grid2world(n->_robot_pose_image);
+	
+	Eigen::Vector2f dp=p_angle-p_pose;
+	float angle=atan2(dp.y(), dp.x());
+	Eigen::Vector3f pose(p_pose.x(), p_pose.y(), angle);
+	Eigen::Isometry2f pose_origin = v2t(n->_image_map_origin)*v2t(pose);
+	Eigen::Vector3f new_pose = t2v(pose_origin);
+      
+	FloatVector vpose;
+	vpose.push_back(new_pose.x());
+	vpose.push_back(new_pose.y());
+	vpose.push_back(new_pose.z());
+	qi::AnyValue value = qi::AnyValue::from(vpose);
+	n->_memory_service.call<void>("raiseEvent", "NAOqiLocalizer/SetPose", value);
+	
+      }
+
+      
+    } else {
+      if( event == cv::EVENT_LBUTTONDOWN ) {
+	std::cerr << "Left Click!" << std::endl;
+	n->_goal = Eigen::Vector2i(y,x);
+	n->_have_goal = true;
+	std::cerr << "Setting goal: " << n->_goal.transpose() << std::endl;
+
+	Eigen::Vector2f goalf = n->grid2world(n->_goal);
+	Eigen::Vector3f vgoal(goalf.x(), goalf.y(), 0);
+	Eigen::Isometry2f goal_origin = v2t(n->_image_map_origin)*v2t(vgoal);
+      
+	FloatVector goal;
+	goal.push_back(goal_origin.translation().x());
+	goal.push_back(goal_origin.translation().y());
+	qi::AnyValue value = qi::AnyValue::from(goal);
+	n->_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Goal", value);
+      }
     }
   }
 
-  void NAOqiPlannerGUI::onStatusChanged(qi::AnyValue value){
+  void NAOqiNavigationGUI::onStatusChanged(qi::AnyValue value){
     std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> STATUS CHANGED CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     std::string state = value.asString();
     if (state == "GoalReached" || state == "WaitingForGoal"){
@@ -59,7 +105,7 @@ namespace naoqi_planner_gui {
     }
   }
 
-  void NAOqiPlannerGUI::onExternalCollisionProtectionEnabled(qi::AnyValue value){
+  void NAOqiNavigationGUI::onExternalCollisionProtectionEnabled(qi::AnyValue value){
     std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> External Collision Protection Enabled CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     _collision_protection_enabled = value.as<bool>();
     if (_collision_protection_enabled){
@@ -70,29 +116,29 @@ namespace naoqi_planner_gui {
     
   }
 
-  void NAOqiPlannerGUI::subscribeServices(){
+  void NAOqiNavigationGUI::subscribeServices(){
     _memory_service = _session->service("ALMemory");
 
     //subscribe to status changes
     _subscriber_status = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Status");
-    _signal_status_id = _subscriber_status.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlannerGUI::onStatusChanged, this, _1))));
+    _signal_status_id = _subscriber_status.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiNavigationGUI::onStatusChanged, this, _1))));
 
     //subscribe to collision protection changes
     _subscriber_collision_protection_enabled = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/ExternalCollisionProtectionEnabled");
-    _signal_collision_protection_enabled_id = _subscriber_collision_protection_enabled.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlannerGUI::onExternalCollisionProtectionEnabled, this, _1))));
+    _signal_collision_protection_enabled_id = _subscriber_collision_protection_enabled.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiNavigationGUI::onExternalCollisionProtectionEnabled, this, _1))));
     
     _stop_thread=false;
-    _servicesMonitorThread = std::thread(&NAOqiPlannerGUI::servicesMonitorThread, this);
+    _servicesMonitorThread = std::thread(&NAOqiNavigationGUI::servicesMonitorThread, this);
     std::cerr << "Planner GUI Services Monitor Thread launched." << std::endl;
   }
 
-  void NAOqiPlannerGUI::unsubscribeServices(){
+  void NAOqiNavigationGUI::unsubscribeServices(){
     _subscriber_status.disconnect(_signal_status_id);
     _stop_thread=true;
     _servicesMonitorThread.join();
   }
 
-  void NAOqiPlannerGUI::servicesMonitorThread() {
+  void NAOqiNavigationGUI::servicesMonitorThread() {
     while (!_stop_thread){
       std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
     
@@ -142,7 +188,7 @@ namespace naoqi_planner_gui {
 
 
 
-  void NAOqiPlannerGUI::readMap(const std::string mapname){
+  void NAOqiNavigationGUI::readMap(const std::string mapname){
     std::cerr << "Reading map" << mapname << std::endl;
   
     // reading map info
@@ -189,32 +235,20 @@ namespace naoqi_planner_gui {
 
 
 
-  void NAOqiPlannerGUI::handleGUIDisplay() {
+  void NAOqiNavigationGUI::handleGUIDisplay() {
     
-    FloatImage shown_image;
-    shown_image.create(_indices_image.rows, _indices_image.cols);
-    for (int r=0; r<_indices_image.rows; ++r) {
-      int* src_ptr=_indices_image.ptr<int>(r);
-      float* dest_ptr=shown_image.ptr<float>(r);
-      for (int c=0; c<_indices_image.cols; ++c, ++src_ptr, ++dest_ptr){
-	if (*src_ptr<-1)
-	  *dest_ptr = .5f;
-	else if (*src_ptr == -1)
-	  *dest_ptr = 1.f;
-	else
-	  *dest_ptr=0.f;
-      }
-    }
+    RGBImage shown_image;
+    cvtColor(_map_image, shown_image, CV_GRAY2BGR);
     
     // Drawing goal
     if (_have_goal)
-      cv::circle(shown_image, cv::Point(_goal.y(), _goal.x()), 3, cv::Scalar(0.0f));
+      cv::circle(shown_image, cv::Point(_goal.y(), _goal.x()), 3, cv::Scalar(255,0,0));
 
     // Drawing current pose
     cv::rectangle(shown_image,
 		  cv::Point(_robot_pose_image.y()+2, _robot_pose_image.x()-2),
 		  cv::Point(_robot_pose_image.y()-2, _robot_pose_image.x()+2),
-		  cv::Scalar(0.0f));
+		  cv::Scalar(0,0,255));
 
     
     //Draw path
@@ -223,26 +257,32 @@ namespace naoqi_planner_gui {
 	cv::line(shown_image,
 		 cv::Point(_path[i].y(), _path[i].x()),
 		 cv::Point(_path[i+1].y(), _path[i+1].x()),
-		 cv::Scalar(0.0f));
+		 cv::Scalar(0,0,0));
 	
       }
     }
 
     char buf[1024];
+    sprintf(buf, " SetPose: %d", _set_pose);
+    cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);
+      
     sprintf(buf, " MoveEnabled: %d", _move_enabled);
-    cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
+    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);
     sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
-    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
+    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);
     sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
-    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);    
+    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.09), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);    
     
     cv::imshow("pepper_planner_gui", shown_image);
   }  
 
 
-  void NAOqiPlannerGUI::handleGUIInput(){
+  void NAOqiNavigationGUI::handleGUIInput(){
     char key=cv::waitKey(10);
     switch(key) {
+    case 's':
+      _set_pose = !_set_pose;
+      break;
     case 'p':
       _move_enabled = !_move_enabled;
       _memory_service.call<void>("raiseEvent", "NAOqiPlanner/MoveEnabled", _move_enabled);

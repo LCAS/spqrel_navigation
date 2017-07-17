@@ -11,15 +11,15 @@
 
 #include "srrg_path_map/path_map_utils.h"
 
-namespace naoqi_planner_gui {
+namespace naoqi_navigation_gui {
 
   using namespace srrg_core;
 
-  class NAOqiPlannerGUI {
+  class NAOqiNavigationGUI {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
       
-      NAOqiPlannerGUI(qi::SessionPtr session);
+      NAOqiNavigationGUI(qi::SessionPtr session);
     
     void initGUI();
     void readMap(const std::string mapname);
@@ -81,6 +81,7 @@ namespace naoqi_planner_gui {
     static void onMouse( int event, int x, int y, int, void* v);
     void handleGUIInput();
     void handleGUIDisplay();
+    bool _set_pose;
   };
 
 }

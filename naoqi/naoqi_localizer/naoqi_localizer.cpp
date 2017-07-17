@@ -37,11 +37,17 @@ namespace naoqi_localizer {
   }
 
   void NAOqiLocalizer::subscribeServices(){
-    qi::AnyObject memory_service = _session->service("ALMemory");
-    qi::AnyObject motion_service = _session->service("ALMotion");
+    _memory_service = _session->service("ALMemory");
+    _motion_service = _session->service("ALMotion");
 
     _stop_thread=false;
-    _servicesMonitorThread = std::thread(&NAOqiLocalizer::servicesMonitorThread, this, memory_service, motion_service);
+    _servicesMonitorThread = std::thread(&NAOqiLocalizer::servicesMonitorThread, this);
+
+    //subscribe to manual changes on pose
+    _subscriber_pose = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiLocalizer/SetPose");
+    _signal_pose_id = _subscriber_pose.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiLocalizer::onPoseChanged, this, _1))));
+
+
     std::cerr << "Localizer Services Monitor Thread launched." << std::endl;
   }
 
@@ -50,10 +56,10 @@ namespace naoqi_localizer {
     _servicesMonitorThread.join();
   }
 
-  void NAOqiLocalizer::servicesMonitorThread(qi::AnyObject memory_service, qi::AnyObject motion_service) {
+  void NAOqiLocalizer::servicesMonitorThread() {
     while (!_stop_thread){
       std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
-      qi::AnyValue result =  motion_service.call<qi::AnyValue>("getRobotPosition", false);
+      qi::AnyValue result =  _motion_service.call<qi::AnyValue>("getRobotPosition", false);
       std::vector<float> robotpose = result.toList<float>();
       Eigen::Vector3f odom_pose(robotpose[0], robotpose[1], robotpose[2]);
     
@@ -64,7 +70,7 @@ namespace naoqi_localizer {
     
       _old_odom_pose=odom_pose;
 
-      Vector2fVector endpoints = getLaser(memory_service);
+      Vector2fVector endpoints = getLaser(_memory_service);
       bool updated = update(endpoints);
       computeStats();
 
@@ -83,7 +89,7 @@ namespace naoqi_localizer {
       std::cerr << "Robot pose: " << robot_pose.transpose() << std::endl;
       FloatVector robot_pose_vector = toFloatVector3f(robot_pose);
 
-      memory_service.call<void>("insertData", "NAOqiLocalizer/RobotPose", robot_pose_vector);
+      _memory_service.call<void>("insertData", "NAOqiLocalizer/RobotPose", robot_pose_vector);
       
       std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
       int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
@@ -175,6 +181,30 @@ namespace naoqi_localizer {
       acc+=_timers[i];
     return acc/_timers.size();
   }
+
+  void NAOqiLocalizer::onPoseChanged(qi::AnyValue value) {
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> POSE CHANGE CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+
+    srrg_core::FloatVector vpose = value.toList<float>();
+    if (vpose.size() != 3){
+      std::cerr << "not a valid pose" << std::endl;
+      return;
+    }
+
+    Eigen::Vector3f new_pose(vpose[0],vpose[1],vpose[2]);
+    printf("Setting pose (%s): %.3f %.3f %.3f",
+	   qi::to_string(qi::SteadyClock::now()).c_str(),
+	   new_pose.x(),
+	   new_pose.y(),
+	   new_pose.z());
+  
+    Eigen::Isometry2f inverse_origin=v2t(_image_map_origin).inverse();
+    Eigen::Isometry2f global_pose=v2t(new_pose);
+    Eigen::Vector3f map_pose=t2v(inverse_origin*global_pose);
+    setPose(map_pose);
+    _restarted=true;
+  }
+
 
 
   void NAOqiLocalizer::setInitialPose(float x, float y,float theta) {

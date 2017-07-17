@@ -1,60 +1,60 @@
 import yaml
-import math
-from topological_node import topological_node
+from topological_node import TopologicalNode
 
 
-
-
-class topological_map(object):
+class TopologicalMap(object):
 
     def __init__(self, filename=None):
         if filename:
-            lnodes = self._loadMap(filename)
-            self.nodes= self._get_nodes(lnodes)
+            lnodes = self._load_map(filename)
+            self.nodes = self._get_nodes(lnodes)
         else:
-            self.nodes=[]
-        
-        
+            self.nodes = []
+
     def _get_nodes(self, lnodes):
-        nodes=[]
+        nodes = []
         for i in lnodes:
-            node = topological_node(i['node'])
+            node = TopologicalNode(i['node'])
             nodes.append(node)
         return nodes
-            
 
-    def _loadMap(self, filename):
+    def _load_map(self, filename):
         print "loading " + filename
         with open(filename, 'r') as f:
             return yaml.load(f)
-            
+
     def get_dict(self):
-        s=[]
-        #s['node']=[]
+        s = []
         for i in self.nodes:
-            nod={}
-            nod['node']={}
-            nod['node']['pointset']='NA'
-            nod['node']['name'] = i.name
-            
-            nod['node']['pose'] = {}
-            nod['node']['pose']['position'] = {'x': i.pose.position.x, 'y': i.pose.position.y, 'z': i.pose.position.z}
-            nod['node']['pose']['orientation'] = {'w': i.pose.orientation.w, 'x': i.pose.orientation.x, 'y': i.pose.orientation.y, 'z': i.pose.orientation.z}
-            
-            nod['node']['edges']=[]
+            node = {}
+            node['node'] = {}
+            node['node']['pointset'] = 'NA'
+            node['node']['name'] = i.name
+
+            node['node']['pose'] = {}
+            node['node']['pose']['position'] = {
+                'x': i.pose.position.x,
+                'y': i.pose.position.y,
+                'z': i.pose.position.z
+            }
+            node['node']['pose']['orientation'] = {
+                'w': i.pose.orientation.w,
+                'x': i.pose.orientation.x,
+                'y': i.pose.orientation.y,
+                'z': i.pose.orientation.z
+            }
+
+            node['node']['edges'] = []
             for j in i.edges:
-                dd={}
-                dd['action']= j.action
-                dd['edge_id']= j.edge_id
-                dd['node']= j.node                    
-                nod['node']['edges'].append(dd)
-            
-            nod['node']['verts']=[]
+                dd = {}
+                dd['action'] = j.action
+                dd['edge_id'] = j.edge_id
+                dd['node'] = j.node
+                node['node']['edges'].append(dd)
+
+            node['node']['verts'] = []
             for h in i.verts:
-                vv={'x': h.x,'y': h.y}
-                nod['node']['verts'].append(vv)
-                
-            s.append(nod)
-        
+                vv = {'x': h.x, 'y': h.y}
+                node['node']['verts'].append(vv)
+            s.append(node)
         return s
-        

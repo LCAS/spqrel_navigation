@@ -126,6 +126,7 @@ class TopologicalEditor(object):
             self.origin_node = 'none'
         elif k == ord('h'):
             self._set_mode('none')
+            print("Press (a) to add node\nPress (d) to remove node\nPress (e) to add edge between to nodes (click origin first and then destination)\nPress (h) for this Menu\nPress (m) to move a node\nPress (w) to write map to outmap\n")
         elif k == ord('m'):
             self._set_mode('move')
         elif k == ord('w'):

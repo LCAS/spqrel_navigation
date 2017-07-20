@@ -171,6 +171,9 @@ namespace srrg_localizer2d {
     //! sets the likelihood gain
     inline void setLikelihoodGain(float lg)  {_likelihood_gain = lg; }
 
+    //! forces an update of the particles
+    inline void forceUpdate()  { _force_update = true; }
+
     //! returns the cumulative likelihood, is a measure of how well the measurements
     //! fit the map
     inline float cumulativeLikelihood() const { return _cumulative_likelihood; }
@@ -238,6 +241,9 @@ namespace srrg_localizer2d {
     double likelihood(const Eigen::Vector3f& pose, const srrg_core::Vector2fVector& observation, float*endpoint_distances=0);
     std::vector<float> _endpoint_distances;
     float _likelihood_gain; 
+
+    // variable to force one step of update of the particles
+    bool _force_update;
   };
 
 }

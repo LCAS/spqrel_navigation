@@ -28,6 +28,7 @@ namespace srrg_localizer2d {
     _min_weight=0.1;
     _particle_resetting = true;
     _likelihood_gain = 10;
+    _force_update = false; 
   }
 
 
@@ -137,7 +138,6 @@ namespace srrg_localizer2d {
   }
 
   void LocalizationFilter::setPose(const Eigen::Vector3f pose, Eigen::Vector3f standard_deviations) {
-    
     Eigen::Isometry2f pose_transform = v2t(pose);
     for (size_t i = 0; i<_particles.size(); i++){
       Eigen::Vector3f noise;
@@ -146,6 +146,7 @@ namespace srrg_localizer2d {
       _particles[i]._pose = t2v(pose_transform*v2t(noise));
       _particles[i]._weight = 1;
     }
+    _force_update = true;
   }
 
   void LocalizationFilter::predict(const Eigen::Vector3f control) {
@@ -193,9 +194,11 @@ namespace srrg_localizer2d {
     _last_endpoints = observation; 
  
     // if the platform did not move enough, do nothing
-    if (_cumulative_rotation<_min_update_rotation &&
-	_cumulative_translation < _min_update_translation)
+    if (!_force_update && (_cumulative_rotation<_min_update_rotation &&
+	_cumulative_translation < _min_update_translation))
       return 0;
+
+    _force_update = false;
 
     //update
     _cumulative_translation = 0;

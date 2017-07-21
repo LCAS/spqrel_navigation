@@ -264,14 +264,14 @@ namespace naoqi_navigation_gui {
 
     char buf[1024];
     sprintf(buf, " SetPose: %d", _set_pose);
-    cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);
+    cv::putText(shown_image, buf, cv::Point(20, 50), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);
       
     sprintf(buf, " MoveEnabled: %d", _move_enabled);
-    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);
+    cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);
     sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
-    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);
+    cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);
     sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
-    cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.09), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);    
+    cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.09), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(200,0,200), 1);    
     
     cv::imshow("pepper_planner_gui", shown_image);
   }  

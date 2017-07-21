@@ -163,7 +163,7 @@ namespace naoqi_localizer {
       paintState(img, _show_distance_map);
       char buf[1024];
       sprintf(buf, " SetPose: %d", _set_pose);
-      cv::putText(img, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
+      cv::putText(img, buf, cv::Point(20, 50), cv::FONT_HERSHEY_SIMPLEX, img.rows*1e-3, cv::Scalar(200,0,200), 1);
       //sprintf(buf, " DynamicRestart: %d", particleResetting());
       //cv::putText(img, buf, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
       //sprintf(buf, " Latency/cycle: %f [ms]", cycleLatency());
@@ -204,7 +204,6 @@ namespace naoqi_localizer {
     setPose(map_pose);
     _restarted=true;
   }
-
 
 
   void NAOqiLocalizer::setInitialPose(float x, float y,float theta) {

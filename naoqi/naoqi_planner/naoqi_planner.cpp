@@ -155,7 +155,7 @@ namespace naoqi_planner {
 
 
       //Draw path
-      if (_robot_pose_image.x()>=0 && _have_goal){
+      /*if (_robot_pose_image.x()>=0 && _have_goal){
 	PathMapCell* current=&_path_map(_robot_pose_image.x(), _robot_pose_image.y());
 	while (current&& current->parent && current->parent!=current) {
 	  PathMapCell* parent=current->parent;
@@ -165,8 +165,18 @@ namespace naoqi_planner {
 		   cv::Scalar(0.0f));
 	  current = current->parent;
 	}
-      }
+	}*/
 
+      if (_have_goal && _path.size()>1){
+	for (size_t i=0; i<_path.size()-1; i++){
+	  Eigen::Vector2i cell_from = _path[i];
+	  Eigen::Vector2i cell_to   = _path[i+1];
+	  cv::line(shown_image,
+		   cv::Point(cell_from.y(), cell_from.x()),
+		   cv::Point(cell_to.y(), cell_to.x()),
+		   cv::Scalar(0.0f));
+	}
+      }
 
       //Draw laser
       for (size_t i=0; i<_laser_points.size(); i++){
@@ -181,11 +191,11 @@ namespace naoqi_planner {
       
       char buf[1024];
       sprintf(buf, " MoveEnabled: %d", _move_enabled);
-      cv::putText(shown_image, buf, cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
+      cv::putText(shown_image, buf, cv::Point(20, 50), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
       sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
-      cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
+      cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
       sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
-      cv::putText(shown_image, buf, cv::Point(20, 30+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
+      cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
 
       
       cv::imshow("pepper_planner", shown_image);
@@ -336,15 +346,16 @@ namespace naoqi_planner {
 
   void NAOqiPlanner::servicesMonitorThread() {
 
-    
+    std::chrono::steady_clock::time_point time_last_reloc = std::chrono::steady_clock::now();
+
     while (!_stop_thread){
       publishState();
       std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
       //get robot localization
-      qi::AnyValue value = _memory_service.call<qi::AnyValue>("getData", "NAOqiLocalizer/RobotPose");
+      qi::AnyValue pose_anyvalue = _memory_service.call<qi::AnyValue>("getData", "NAOqiLocalizer/RobotPose");
 
-      srrg_core::FloatVector robot_pose_floatvector = value.toList<float>();
+      srrg_core::FloatVector robot_pose_floatvector = pose_anyvalue.toList<float>();
       Eigen::Vector3f robot_pose_vector = srrg_core::fromFloatVector3f(robot_pose_floatvector);
       std::cerr << "Robot pose: " << robot_pose_vector.transpose() << std::endl;
       
@@ -370,6 +381,16 @@ namespace naoqi_planner {
 	_max_distance_map_index = _dmap_calculator.maxIndex();
 	_dmap_calculator.compute();
 	_distance_map_backup=_distance_map.data();
+
+	//I'm doing also backup of the cost_map without obstacles
+	_distance_image = _dmap_calculator.distanceImage()*_map_resolution;
+	distances2cost(_cost_image_backup,
+		       _distance_image,
+		       _robot_radius,
+		       _safety_region,
+		       _min_cost,
+		       _max_cost);
+
 	_restart = false;
 	
       } 
@@ -432,6 +453,30 @@ namespace naoqi_planner {
 	  current = current->parent;
 	}
 
+	if (!_path.size()){
+	  //Check the reason of not path found
+	  //1) goal is on an obstacle,
+	  //2) robot is badly localized so obstacles are projected wrongly into the map
+	  /*PathMapCell* cell_goal=&_path_map(_goal.x(), _goal.y());
+	  if (cell_goal->cost == getMaxCost()){
+	    //Recovery procedure for goal at obstacle
+	    std::cerr << ">>>>>>>>>>>>>>>>>>> Goal at obstacle <<<<<<<<<<<<<<<<<<<" << std::endl;
+
+	  }else {
+	    //Recovery procedure for robot bad localized
+	    int time_ellapsed_last_reloc = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - time_last_reloc).count();
+	    int reloc_rate_seconds = 5;
+	    if (time_ellapsed_last_reloc > reloc_rate_seconds){
+	      std::cerr << ">>>>>>>>>>>>>>>>>>> Call Relocalization <<<<<<<<<<<<<<<<<<<" << std::endl;
+	      _memory_service.call<void>("raiseEvent", "NAOqiLocalizer/SetPose", pose_anyvalue);
+	      time_last_reloc = std::chrono::steady_clock::now();
+	    }
+	    
+	    }*/
+
+	  recoveryPlan();
+	}
+
 	publishPath();
 		
 	float linear_vel, angular_vel;
@@ -479,6 +524,45 @@ namespace naoqi_planner {
 
   }
 
+  void NAOqiPlanner::recoveryPlan(){
+    std::cerr << ">>>>>>>>>>> Recovery Plan: Computing path without obstacles <<<<<<<<<<" << std::endl;
+    
+    std::chrono::steady_clock::time_point time_path_start = std::chrono::steady_clock::now();
+    _path_calculator.setMaxCost(_max_cost-1);
+    _path_calculator.setCostMap(_cost_image_backup);
+    _path_calculator.setOutputPathMap(_path_map_backup);
+    Vector2iVector goals;
+    goals.push_back(_goal);
+    _path_calculator.goals() = goals;
+    _path_calculator.compute();
+    std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
+
+    std::cerr << "PathCalculator: "
+	      << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl;
+
+    _path.clear();
+    // Filling path
+    PathMapCell* current=&_path_map_backup(_robot_pose_image.x(), _robot_pose_image.y());
+    while (current && current->parent && current->parent!=current) {
+      PathMapCell* parent=current->parent;
+
+      PathMapCell* cell_path=&_path_map(current->r, current->c);
+      if (cell_path->cost == getMaxCost()){
+	//reached first obstacle in the path to goal
+	break;
+      }else{
+      	_path.push_back(Eigen::Vector2i(current->r, current->c));
+	current = current->parent;
+      }
+    }
+
+    if (!_path.size()){
+      std::cerr << ">>>>>>>>>>> Recovery Plan Failed <<<<<<<<<<" << std::endl;
+    }else {
+      std::cerr << ">>>>>>>>>>> Found Path of size: " << _path.size() << std::endl;
+      _recovery_goal = true;
+    }
+  }
 
   void NAOqiPlanner::computeControlToWaypoint(float& v, float& w) {
     if (!_path.size()){

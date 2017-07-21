@@ -77,10 +77,10 @@ namespace naoqi_planner {
     UnsignedCharImage _map_image;
     IntImage _indices_image; 
     FloatImage _distance_image;
-    FloatImage _cost_image;
+    FloatImage _cost_image, _cost_image_backup;
     PathMap _distance_map;
     std::vector<PathMap::CellType, PathMap::AllocatorType> _distance_map_backup;
-    PathMap _path_map;
+    PathMap _path_map, _path_map_backup;
     DistanceMapPathSearch _dmap_calculator;
     DijkstraPathSearch _path_calculator;
     int _max_distance_map_index;
@@ -89,6 +89,7 @@ namespace naoqi_planner {
     bool _move_enabled;
     bool _collision_protection_enabled, _collision_protection_desired;
     void computeControlToWaypoint(float& v, float& w);
+    void recoveryPlan();
     float _prev_v, _prev_w;
 
     Vector2fVector _laser_points;

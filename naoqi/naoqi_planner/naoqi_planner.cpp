@@ -560,7 +560,6 @@ namespace naoqi_planner {
       std::cerr << ">>>>>>>>>>> Recovery Plan Failed <<<<<<<<<<" << std::endl;
     }else {
       std::cerr << ">>>>>>>>>>> Found Path of size: " << _path.size() << std::endl;
-      _recovery_goal = true;
     }
   }
 

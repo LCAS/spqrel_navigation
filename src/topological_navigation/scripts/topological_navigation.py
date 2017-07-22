@@ -69,6 +69,14 @@ class TopologicalLocaliser(object):
         signal.signal(signal.SIGINT, self._on_shutdown)
         signal.pause()
 
+
+    def _insert_nodes(self):
+        node_names=[]
+        for i in self.map:
+            node_names.append(i.name)
+        self.memProxy.insertData("TopologicalNav/Nodes", node_names)
+
+
     def _nav_timer(self):
         global goal_check
         global get_plan

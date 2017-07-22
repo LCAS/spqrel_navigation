@@ -201,7 +201,8 @@ namespace naoqi_localizer {
     Eigen::Isometry2f inverse_origin=v2t(_image_map_origin).inverse();
     Eigen::Isometry2f global_pose=v2t(new_pose);
     Eigen::Vector3f map_pose=t2v(inverse_origin*global_pose);
-    setPose(map_pose);
+    Eigen::Vector3f standard_deviations=Eigen::Vector3f(0.1, 0.1, 0.1);
+    setPose(map_pose, standard_deviations);
     _restarted=true;
   }
 

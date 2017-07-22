@@ -32,6 +32,9 @@ namespace naoqi_planner {
     _dyn_map.setTimeThreshold(30); //seconds
     _dyn_map.addBlindZone(30*M_PI/180, 60*M_PI/180);
     _dyn_map.addBlindZone(-30*M_PI/180, -60*M_PI/180);
+
+    _time_last_reloc = std::chrono::steady_clock::now();
+
   }
 
   void NAOqiPlanner::initGUI(){
@@ -346,8 +349,6 @@ namespace naoqi_planner {
 
   void NAOqiPlanner::servicesMonitorThread() {
 
-    std::chrono::steady_clock::time_point time_last_reloc = std::chrono::steady_clock::now();
-
     while (!_stop_thread){
       publishState();
       std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
@@ -464,12 +465,12 @@ namespace naoqi_planner {
 
 	  }else {
 	    //Recovery procedure for robot bad localized
-	    int time_ellapsed_last_reloc = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - time_last_reloc).count();
+	    int time_ellapsed_last_reloc = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - _time_last_reloc).count();
 	    int reloc_rate_seconds = 5;
 	    if (time_ellapsed_last_reloc > reloc_rate_seconds){
 	      std::cerr << ">>>>>>>>>>>>>>>>>>> Call Relocalization <<<<<<<<<<<<<<<<<<<" << std::endl;
 	      _memory_service.call<void>("raiseEvent", "NAOqiLocalizer/SetPose", pose_anyvalue);
-	      time_last_reloc = std::chrono::steady_clock::now();
+	      _time_last_reloc = std::chrono::steady_clock::now();
 	    }
 	    
 	    }*/
@@ -519,9 +520,25 @@ namespace naoqi_planner {
     } // main while
 
     setExternalCollisionProtectionEnabled(true);
- 
+    _motion_service.call<void>("stopMove");
+	  
     std::cout << "Planner Monitor Thread finished." << std::endl;
 
+  }
+
+  void NAOqiPlanner::recoveryRelocalize(){
+    int time_ellapsed_last_reloc = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - _time_last_reloc).count();
+    int reloc_rate_seconds = 5;
+    if (time_ellapsed_last_reloc > reloc_rate_seconds){
+      std::cerr << ">>>>>>>>>>>>>>>>>>> Call Relocalization <<<<<<<<<<<<<<<<<<<" << std::endl;
+      
+      qi::AnyValue pose_anyvalue = _memory_service.call<qi::AnyValue>("getData", "NAOqiLocalizer/RobotPose");
+      //setting pose will expand particles around current pose.
+      _memory_service.call<void>("raiseEvent", "NAOqiLocalizer/SetPose", pose_anyvalue);
+      _time_last_reloc = std::chrono::steady_clock::now();
+    }
+    
+    
   }
 
   void NAOqiPlanner::recoveryPlan(){
@@ -543,12 +560,17 @@ namespace naoqi_planner {
     _path.clear();
     // Filling path
     PathMapCell* current=&_path_map_backup(_robot_pose_image.x(), _robot_pose_image.y());
+    std::cerr << " current: " << current <<  " current->parent: " << current->parent << std::endl;
+    //if current->parent is null at this point We could change current with the closest cell that has a parent
+
     while (current && current->parent && current->parent!=current) {
       PathMapCell* parent=current->parent;
 
       PathMapCell* cell_path=&_path_map(current->r, current->c);
       if (cell_path->cost == getMaxCost()){
 	//reached first obstacle in the path to goal
+
+	std::cerr << "Cell cost: " << cell_path->cost << " parent: " << parent << " current: " << current <<  std::endl;
 	break;
       }else{
       	_path.push_back(Eigen::Vector2i(current->r, current->c));
@@ -558,8 +580,24 @@ namespace naoqi_planner {
 
     if (!_path.size()){
       std::cerr << ">>>>>>>>>>> Recovery Plan Failed <<<<<<<<<<" << std::endl;
+
+      //We could try to relocalize at this point:
+      recoveryRelocalize();
+      
     }else {
       std::cerr << ">>>>>>>>>>> Found Path of size: " << _path.size() << std::endl;
+
+      //removing some cells from the path in front of the obstacle
+      float obstacle_distance_threshold = 0.7;
+      int num_cells = obstacle_distance_threshold * _map_inverse_resolution;
+      if (_path.size()>num_cells){
+	int new_size = _path.size()-num_cells;	
+	_path.resize(new_size);
+      } else
+	_path.clear();
+
+      std::cerr << ">>>>>>>>>>> Final Path of size: " << _path.size() << std::endl;
+
     }
   }
 
@@ -588,29 +626,36 @@ namespace naoqi_planner {
 
     Eigen::Vector2f nextwp_world = grid2world(nextwp);
     Eigen::Vector2f robot_pose_xy(_robot_pose.x(), _robot_pose.y());
-    Eigen::Vector2f distance_goal = nextwp_world - robot_pose_xy;
-    float angle_goal = normalize(atan2(distance_goal.y(),distance_goal.x()) - _robot_pose.z());
+    Eigen::Vector2f distance_wp = nextwp_world - robot_pose_xy;
+    float angle_wp = normalize(atan2(distance_wp.y(),distance_wp.x()) - _robot_pose.z());
     float goal_distance_threshold = 0.3;
-    if (distance_goal.norm() < goal_distance_threshold){
-      // std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to goal: " << nextwp.transpose() << std::endl;
+    if (distance_wp.norm() < goal_distance_threshold){
       if (isLastWp){
-        std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to last goal" << std::endl;
+        std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to last wp" << std::endl;
         v = 0.0;
         w = 0.0;
 
         _prev_v = v;
         _prev_w = w;
-        cancelGoal();
-	setState(GoalReached);
-        return;
+
+	Eigen::Vector2f goal_world = grid2world(_goal);
+	Eigen::Vector2f distance_goal = goal_world - robot_pose_xy;
+	if (distance_goal.norm() < goal_distance_threshold){
+	
+	  std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to goal " << std::endl;
+	  
+	  cancelGoal();
+	  setState(GoalReached);
+	}
+	return;
       }
     }else {
-      std::cerr << "Distance to goal: " << distance_goal.norm() << std::endl;
-      std::cerr << "Angle to goal: " << angle_goal << std::endl;
+      std::cerr << "Distance to wp: " << distance_wp.norm() << std::endl;
+      std::cerr << "Angle to wp: " << angle_wp << std::endl;
     }
 
     float force = 1.5;
-    Eigen::Vector2f F(force*cos(angle_goal), force*sin(angle_goal));
+    Eigen::Vector2f F(force*cos(angle_wp), force*sin(angle_wp));
 
     //Constants definition
     float f = 1.0;
@@ -640,7 +685,7 @@ namespace naoqi_planner {
 
     // Switch to rotation-only behaviour
     float max_angle_goal = 0.3;
-    if (fabs(angle_goal) > max_angle_goal)
+    if (fabs(angle_wp) > max_angle_goal)
       v = 0;
     
 

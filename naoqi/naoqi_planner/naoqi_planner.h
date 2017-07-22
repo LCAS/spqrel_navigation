@@ -89,9 +89,14 @@ namespace naoqi_planner {
     bool _move_enabled;
     bool _collision_protection_enabled, _collision_protection_desired;
     void computeControlToWaypoint(float& v, float& w);
-    void recoveryPlan();
     float _prev_v, _prev_w;
 
+    //Recovery procedures
+    void recoveryPlan();
+    void recoveryRelocalize();
+    std::chrono::steady_clock::time_point _time_last_reloc;
+
+    
     Vector2fVector _laser_points;
     DynamicMap _dyn_map;
 

@@ -5,10 +5,12 @@ import signal
 import sys
 import argparse
 import math
+from random import randrange
+from time import sleep
 
 #import topological_map
 from topological_map import TopologicalMap
-from route_search import get_node
+from route_search import TopologicalRouteSearch, get_node
 from threading import Timer
 from naoqi import *
 
@@ -53,8 +55,10 @@ class MyModule(ALModule):
 
 
 class TopologicalLocaliser(object):
-    def __init__(self, pip, pport, topomap):
+    def __init__(self, pip, pport, topomap, fake=False):
         self.move_base_actions = ['NAOqiPlanner/Goal']
+        self.__fake = fake
+        self.__fake_node = 'none'
         self.closest_node = 'none'
         self.current_node = 'none'
         # If it fails reaching one goal this variable stores the node it was trying to reach when failed
@@ -119,14 +123,18 @@ class TopologicalLocaliser(object):
     def _localisation_timer(self):
         pre_curnod = self.current_node
         pre_clonod = self.closest_node
-        val = self.memProxy.getData("NAOqiLocalizer/RobotPose")
-
-        dists = self.get_distances_to_pose(val)
-        self.closest_node = dists[0]['node'].name
-        if self.point_in_poly(dists[0]['node'], val):
-            self.current_node = dists[0]['node'].name
+        if self.__fake:
+            self.closest_node = self.__fake_node
+            self.current_node = self.__fake_node
         else:
-            self.current_node = 'none'
+            val = self.memProxy.getData("NAOqiLocalizer/RobotPose")
+
+            dists = self.get_distances_to_pose(val)
+            self.closest_node = dists[0]['node'].name
+            if self.point_in_poly(dists[0]['node'], val):
+                self.current_node = dists[0]['node'].name
+            else:
+                self.current_node = 'none'
 
         if pre_curnod != self.current_node:
             self.memProxy.raiseEvent("TopologicalNav/CurrentNode", self.current_node)   
@@ -161,7 +169,6 @@ class TopologicalLocaliser(object):
         self.loc_timer.start()
 
     def get_route(self, target):
-        o_node = get_node(self.map, self.closest_node)
         g_node = get_node(self.map, target)
         print "get route", self.closest_node, target
         # Everything is Awesome!!!
@@ -173,9 +180,13 @@ class TopologicalLocaliser(object):
         return route
 
     def navigate(self, target):
+        if self.closest_node is None or self.closest_node == 'none':
+            print ('was not localised, so assume we are at the target')
+            o_node = get_node(self.map, target)
+        else:
+            o_node = get_node(self.map, self.closest_node)
         print self.closest_node, target
 
-        o_node = get_node(self.map, self.closest_node)
         g_node = get_node(self.map, target)
 
         # Everything is Awesome!!!
@@ -186,15 +197,31 @@ class TopologicalLocaliser(object):
             print route
             if route:
                 print "Navigating Case 1"
-                self.follow_route(route)
+                if self.__fake:
+                    print('FAKE navigation, pretending to go to target %s' %
+                          target)
+                    sleep(randrange(1, 5))
+                    print('FAKE navigation, pretending to have succeeded')
+                    self.memProxy.raiseEvent(
+                        "TopologicalNav/Status",
+                        "Success"
+                    )
+                    self.__fake_node = target
+                else:
+                    self.follow_route(route)
             else:
                 print "There is no route to this node check your edges ..."
         else:
             # Target and Origin are the same
             if(g_node.name == o_node.name):
                 print "Target and Origin Nodes are the same"
+                self.memProxy.raiseEvent("TopologicalNav/Status", "Success")
             else:
                 print "Target or Origin Nodes were not found on Map"
+                self.memProxy.raiseEvent("TopologicalNav/Status", "Fail")
+
+        if self.__fake:
+            self.__fake_node = target
 
     def follow_route(self, route):
         """
@@ -354,6 +381,8 @@ if __name__ == '__main__':
                         help="Naoqi port number")
     parser.add_argument("--tmap", type=str, default="INB3123.tpg",
                         help="path to topological map")
+    parser.add_argument("--fake", action='store_true', default=False,
+                        help="run fake nav")
     args = parser.parse_args()
     pip = args.pip
     pport = args.pport
@@ -372,4 +401,4 @@ if __name__ == '__main__':
         print e
         exit(1)
 
-    server = TopologicalLocaliser(pip, pport, topomap)
+    server = TopologicalLocaliser(pip, pport, topomap, fake=args.fake)

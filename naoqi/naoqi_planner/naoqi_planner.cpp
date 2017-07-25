@@ -53,6 +53,10 @@ namespace naoqi_planner {
       n->_goal = Eigen::Vector2i(y,x);
       n->_have_goal = true;
       std::cerr << "Setting goal: " << n->_goal.transpose() << std::endl;
+      if (n->_state != GoalReceived){
+	n->_state = GoalReceived;
+	n->publishState();
+      }
     }
     
   }
@@ -265,6 +269,8 @@ namespace naoqi_planner {
     _goal = world2grid(Eigen::Vector2f(goal_transform.translation().x(), goal_transform.translation().y()));
 
     _have_goal = true;
+    _state = GoalReceived;
+    publishState();
   }
 
   void NAOqiPlanner::onMoveEnabled(qi::AnyValue value){
@@ -488,9 +494,21 @@ namespace naoqi_planner {
 	    setExternalCollisionProtectionEnabled(_collision_protection_desired); 
 	  }
 
-	  //apply vels
-	  std::cerr << "Applying vels: " << linear_vel  << " " << angular_vel << std::endl;
-	  _motion_service.call<void>("move", linear_vel,0,angular_vel);
+	  if (_state != PathNotFound){
+	    //apply vels
+	    std::cerr << "Applying vels: " << linear_vel  << " " << angular_vel << std::endl;
+	    _motion_service.call<void>("move", linear_vel,0,angular_vel);
+	  } else {
+	    std::cerr << "PATH NOT FOUND: STOPPING ROBOT" << std::endl;
+	    if (_prev_v != 0 ||_prev_w != 0){
+	      _prev_v = 0;
+	      _prev_w = 0;
+	      _motion_service.call<void>("stopMove");
+	      std::cerr << "SENDING STOPMOVE" << std::endl;
+	      
+
+	    }
+	  }
 	}else{
 	  _prev_v = 0;
 	  _prev_w = 0;
@@ -709,8 +727,35 @@ namespace naoqi_planner {
 	_memory_service.call<void>("insertData", "NAOqiPlanner/Path", path_vector);
 	_memory_service.call<void>("insertData", "NAOqiPlanner/Status", "PathFound");
 	std::cerr << "PAthsize: " << _path.size() * _map_resolution << std::endl;
-	_memory_service.call<void>("insertData", "NAOqiPlanner/ExecutionStatus", _path.size() * _map_resolution );
+	FloatVector exec_status;
+	exec_status.push_back(_path.size() * _map_resolution);
+	Eigen::Vector2f goal_world = grid2world(_goal);
+	Eigen::Vector2f robot_pose_xy(_robot_pose.x(), _robot_pose.y());
+	Eigen::Vector2f distance_goal = goal_world - robot_pose_xy;
+	float angle_goal = normalize(atan2(distance_goal.y(),distance_goal.x()) - _robot_pose.z());
+
+
+
+	exec_status.push_back(angle_goal);
+
+	_memory_service.call<void>("insertData", "NAOqiPlanner/ExecutionStatus",  exec_status);
       }else {
+	FloatVector exec_status;
+	Eigen::Vector2f goal_world = grid2world(_goal);
+	Eigen::Vector2f robot_pose_xy(_robot_pose.x(), _robot_pose.y());
+	Eigen::Vector2f distance_goal = goal_world - robot_pose_xy;
+	float angle_goal = normalize(atan2(distance_goal.y(),distance_goal.x()) - _robot_pose.z());
+
+
+
+	exec_status.push_back(distance_goal.norm());
+	exec_status.push_back(angle_goal);
+
+	_memory_service.call<void>("insertData", "NAOqiPlanner/ExecutionStatus",  exec_status);
+
+
+
+
 	_memory_service.call<void>("insertData", "NAOqiPlanner/Status", "PathNotFound");
       }
     }
@@ -730,6 +775,10 @@ namespace naoqi_planner {
     }
     
     if (_have_goal) {
+      if (_state==GoalReceived){
+	_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Status", "GoalReceived");
+      }
+      
       if (_path.size() && _state!=PathFound){
 	_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Status", "PathFound");
 	_state = PathFound;

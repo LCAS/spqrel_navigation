@@ -28,7 +28,7 @@ namespace naoqi_planner {
   using namespace srrg_core;
 
   enum WhatToShow {Map, Distance, Cost};
-  enum State {WaitingForGoal, PathFound, PathNotFound, GoalReached};
+  enum State {WaitingForGoal, GoalReceived, PathFound, PathNotFound, GoalReached};
 
   class NAOqiPlanner {
   public:

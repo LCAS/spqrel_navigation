@@ -1,0 +1,6 @@
+free_thresh: 0.196
+image: nagoya_gmapping.pgm
+negate: 0
+occupied_thresh: 0.65
+origin: [-3.3499999999999943, -7.1499999999999915, 0.0]
+resolution: 0.05

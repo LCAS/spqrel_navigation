@@ -10,7 +10,7 @@ from time import sleep
 
 #import topological_map
 from topological_map import TopologicalMap
-from route_search import TopologicalRouteSearch, get_node
+from route_search import TopologicalRouteSearch, get_node, get_edge_from_id
 from threading import Timer
 from naoqi import *
 
@@ -197,18 +197,7 @@ class TopologicalLocaliser(object):
             print route
             if route:
                 print "Navigating Case 1"
-                if self.__fake:
-                    print('FAKE navigation, pretending to go to target %s' %
-                          target)
-                    sleep(randrange(1, 5))
-                    print('FAKE navigation, pretending to have succeeded')
-                    self.memProxy.raiseEvent(
-                        "TopologicalNav/Status",
-                        "Success"
-                    )
-                    self.__fake_node = target
-                else:
-                    self.follow_route(route)
+                self.follow_route(route)
             else:
                 print "There is no route to this node check your edges ..."
         else:
@@ -250,7 +239,15 @@ class TopologicalLocaliser(object):
                 print 'Do planner to %s' % (self.closest_node)
                 inf = o_node.pose
                 self.current_target = orig
-                nav_ok = self.monitored_navigation(inf, 'NAOqiPlanner/Goal')
+                if self.__fake:
+                    print('FAKE navigation, pretending to go to target')
+
+                    sleep(randrange(1, 2))
+                    print('FAKE navigation, pretending to have succeeded')
+                    nav_ok = True
+                    self.__fake_node = self.current_target
+                else:
+                    nav_ok = self.monitored_navigation(inf, 'NAOqiPlanner/Goal')
         else:
             if a not in self.move_base_actions:
                 action_server = 'NAOqiPlanner/Goal'
@@ -267,6 +264,13 @@ class TopologicalLocaliser(object):
                 else:
                     print "Getting to exact pose"
                     self.current_target = orig
+                if self.__fake:
+                    print('FAKE navigation, pretending to go to target')
+                    sleep(randrange(1, 2))
+                    print('FAKE navigation, pretending to have succeeded')
+                    nav_ok = True
+                    self.__fake_node = self.current_target
+                else:
                     nav_ok = self.monitored_navigation(o_node.pose, action_server)
 
         while rindex < route_len and not self.cancelled:
@@ -288,7 +292,14 @@ class TopologicalLocaliser(object):
             print "From " + route.source[rindex] + " do " + a + " to " + cedg.node
             self.current_target = cedg.node
             inf = cnode.pose
-            nav_ok = self.monitored_navigation(inf, a)
+            if self.__fake:
+                print('FAKE navigation, pretending to go to target')
+                sleep(randrange(1, 2))
+                print('FAKE navigation, pretending to have succeeded')
+                nav_ok = True
+                self.__fake_node = self.current_target
+            else:
+                nav_ok = self.monitored_navigation(inf, a)
             rindex = rindex + 1
 
         self.navigation_activated = False

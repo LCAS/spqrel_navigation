@@ -9,6 +9,8 @@ import signal
 import sys
 import yaml
 
+from os.path import dirname, realpath, join
+
 from route_search import get_node
 from topological_map import TopologicalMap
 from topological_node import NodeEdges
@@ -32,13 +34,18 @@ class TopologicalEditor(object):
 
         signal.signal(signal.SIGINT, self.signal_handler)
         self.props = self.read_map_properties(mapprops)
+
+        mapprops_path = realpath(dirname(mapprops))
+
         if self.debug:
             print self.props
         self.current_mode = 'none'
         self.running = True
         self.msg_cache = dict()
 
-        self.imgFile = cv2.imread(self.props['image'])
+        imgpath = join(mapprops_path, self.props['image'])
+
+        self.imgFile = cv2.imread(imgpath)
 
         self.outfile = outfile
         self.top_map = TopologicalMap(filename=topomap)

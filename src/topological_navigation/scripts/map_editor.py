@@ -17,6 +17,8 @@ from topological_node import NodeEdges
 from topological_node import TopologicalNode
 
 
+script_path = realpath(dirname(__file__))
+
 class TopologicalEditor(object):
 
     modes = {
@@ -230,7 +232,8 @@ class TopologicalEditor(object):
 
     def load_msgs(self, msg_name):
         if(msg_name not in self.msg_cache.keys()):
-            with open('../msgs/' + msg_name + '.yaml', 'r') as raw_msg:
+            with open(join(script_path, '../msgs/') +
+                      msg_name + '.yaml', 'r') as raw_msg:
                 self.msg_cache[msg_name] = yaml.load(raw_msg)
         return copy.deepcopy(self.msg_cache[msg_name])
 

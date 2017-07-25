@@ -5,7 +5,8 @@ import signal
 import sys
 import argparse
 
-from topological_map import topological_map
+#import topological_map
+from topological_map import TopologicalMap
 from route_search import get_node
 from threading import Timer
 from naoqi import *
@@ -61,7 +62,7 @@ class TopologicalLocaliser(object):
         self.cancelled = False
         self.navigation_activated = False
         self.memProxy = ALProxy("ALMemory", pip, pport)
-        self.map = topological_map(filename=topomap)
+        self.map = TopologicalMap(filename=topomap)
         self.loc_timer = Timer(0.5, self._localisation_timer)
         self.loc_timer.start()
         self.nav_timer = Timer(1.0, self._nav_timer)

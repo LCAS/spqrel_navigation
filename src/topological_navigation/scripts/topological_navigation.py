@@ -4,6 +4,7 @@ import time
 import signal
 import sys
 import argparse
+import math
 
 #import topological_map
 from topological_map import TopologicalMap

@@ -113,7 +113,8 @@ class TopologicalLocaliser(object):
         if goal == '':
             # empty goal means abort!
             self.goal_reached = False
-            self.cancelled = False
+            self.cancelled = True
+            self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
         else:
             self.goal_reached = False
             self.cancelled = False
@@ -306,7 +307,12 @@ class TopologicalLocaliser(object):
                 " do " + a + " to " + cedg.node
             self.current_target = cedg.node
             nav_ok = self.monitored_navigation(cnode, a)
-            rindex = rindex + 1
+            if nav_ok:
+                rindex = rindex + 1
+            elif self.fail_code == 0:  # wrong node, go the right one again
+                pass
+            else:
+                rindex = rindex + 1
 
         self.navigation_activated = False
         if nav_ok:
@@ -350,7 +356,8 @@ class TopologicalLocaliser(object):
                     self.memProxy.raiseEvent("TopologicalNav/Status",
                                              "PlannerSuccesful")
                 elif self.cancelled:
-                    print "  FAILED going to %s" % gnode.name
+                    self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+                    print "  FAILED going to %s, reset naoqiplanner" % gnode.name
                     nav_ok = False
                     if self.fail_code == 0:
                         failmsg = "ReachedWrongNode " + self.failed_to

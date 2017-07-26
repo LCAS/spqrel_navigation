@@ -63,6 +63,7 @@ class TopologicalLocaliser(object):
         self.memProxy = session.service("ALMemory")
         self.goal_check = False
         self.goal_reached = False
+        self._max_retries = 3
 
         self._sub_navgaol = self.memProxy.subscriber(
             "TopologicalNav/Goal"
@@ -334,7 +335,8 @@ class TopologicalLocaliser(object):
 
             nTry = 0
 
-            while nTry < self._max_retries:
+            while nTry < self._max_retries and not self.goal_reached:
+                print "monitored_nav attempt %d" % nTry
                 while not self.cancelled and not self.goal_reached:
                     time.sleep(0.1)
 

@@ -14,11 +14,6 @@ from route_search import TopologicalRouteSearch, get_node, get_edge_from_id
 from threading import Timer
 from naoqi import *
 
-myBroker = None
-goal_check = 0
-goal_reached = 0
-get_plan = 0
-
 
 def get_distance_node_pose(node, pose):
     """

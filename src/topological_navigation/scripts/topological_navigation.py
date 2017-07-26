@@ -393,9 +393,7 @@ class TopologicalLocaliser(object):
 
     def _on_shutdown(self, signal, frame):
         print('You pressed Ctrl+C!')
-        global myBroker
         self.cancelled = True
-        myBroker.shutdown()
         self.loc_timer.cancel()
         self.nav_timer.cancel()
         sys.exit(0)

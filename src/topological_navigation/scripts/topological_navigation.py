@@ -89,9 +89,9 @@ class TopologicalLocaliser(object):
 
         self.move_base_actions = ['NAOqiPlanner/Goal']
         self.__fake = fake
-        self.__fake_node = 'none'
-        self.closest_node = 'none'
-        self.current_node = 'none'
+        self.__fake_node = 'start'
+        self.closest_node = 'start'
+        self.current_node = 'start'
         # If it fails reaching one goal this variable stores the node it was trying to reach when failed
         self.failed_to = 'none'
         self.fail_code = 0
@@ -103,6 +103,7 @@ class TopologicalLocaliser(object):
         # self.nav_timer = Timer(1.0, self._nav_timer)
         # self.nav_timer.start()
         self._last_status = 'UNKNOWN'
+        self.goal_active = False
         signal.signal(signal.SIGINT, self._on_shutdown)
         signal.pause()
 
@@ -110,15 +111,25 @@ class TopologicalLocaliser(object):
         print('on_goal: %s' % goal)
         print "NEW GOAL " + goal
         self._last_status = 'UNKNOWN'
-        if goal == '':
-            # empty goal means abort!
+
+        print 'waiting for current goal to be cancelled'
+        while (self.goal_active):
             self.goal_reached = False
             self.cancelled = True
-            self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+            sleep(.5)
+        print 'it is cancelled'
+        self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+
+        if goal == '':
+            # empty goal means abort! So nothing to be done as we cancelled above
+            pass
         else:
+            self.goal_active = True
             self.goal_reached = False
             self.cancelled = False
             self.navigate(goal)
+
+            self.goal_active = False
 
     def _on_get_plan(self, data):
         print('on_get_plan: %s' % data)
@@ -157,16 +168,16 @@ class TopologicalLocaliser(object):
         if data == 'GoalReached':
             if self.current_target == self.current_node:
                 self.goal_reached = True
-                self.cancelled = False
+                self.failed = False
                 self.failed_to = 'none'
                 self.fail_code = 0
             else:
                 self.goal_reached = False
-                self.cancelled = True
+                self.failed = True
                 self.failed_to = self.current_target
                 self.fail_code = 0
         elif data == 'PathNotFound':
-            self.cancelled = True
+            self.failed = True
             self.failed_to = self.current_target
             self.fail_code = 1
 
@@ -249,9 +260,6 @@ class TopologicalLocaliser(object):
                 print "Target or Origin Nodes were not found on Map"
                 self.memProxy.raiseEvent("TopologicalNav/Status", "Fail")
 
-        if self.__fake:
-            self.__fake_node = target
-
     def follow_route(self, route):
         """
         Follow Route
@@ -312,6 +320,7 @@ class TopologicalLocaliser(object):
             elif self.fail_code == 0:  # wrong node, go the right one again
                 pass
             else:
+                print "qinav failed, but trying next node regardless"
                 rindex = rindex + 1
 
         self.navigation_activated = False
@@ -325,7 +334,7 @@ class TopologicalLocaliser(object):
         if self.__fake:
             print('FAKE navigation, pretending to go to target')
 
-            sleep(randrange(1, 2))
+            sleep(randrange(1, 10))
             print('FAKE navigation, pretending to have succeeded')
             self.memProxy.raiseEvent("TopologicalNav/Status",
                                      "PlannerSuccesful")
@@ -345,9 +354,10 @@ class TopologicalLocaliser(object):
 
             nTry = 0
 
-            while nTry < self._max_retries and not self.goal_reached:
+            while nTry < self._max_retries and not self.goal_reached and not self.cancelled:
                 print "monitored_nav attempt %d to %s" % (nTry, gnode.name)
-                while not self.cancelled and not self.goal_reached:
+                self.failure = False
+                while not self.cancelled and not self.goal_reached and not self.failure:
                     time.sleep(0.1)
 
                 if self.goal_reached:
@@ -355,7 +365,8 @@ class TopologicalLocaliser(object):
                     print "  succeeded going to %s" % gnode.name
                     self.memProxy.raiseEvent("TopologicalNav/Status",
                                              "PlannerSuccesful")
-                elif self.cancelled:
+                    return nav_ok
+                elif self.failure:
                     self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
                     print "  FAILED going to %s, reset naoqiplanner" % gnode.name
                     nav_ok = False
@@ -366,7 +377,10 @@ class TopologicalLocaliser(object):
                         failmsg = "PlannerFailedTo " + self.failed_to
                         self.memProxy.raiseEvent("TopologicalNav/Status", failmsg)
                 # wait a bit before a retry.
-                sleep(nTry)
+                n = 0
+                while m < nTry and not self.cancelled:
+                    n += 1
+                    sleep(1)
                 nTry += 1
         return nav_ok
 
@@ -410,9 +424,9 @@ class TopologicalLocaliser(object):
 
     def _on_shutdown(self, signal, frame):
         print('You pressed Ctrl+C!')
+        self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
         self.cancelled = True
         self.loc_timer.cancel()
-        self.nav_timer.cancel()
         sys.exit(0)
 
 

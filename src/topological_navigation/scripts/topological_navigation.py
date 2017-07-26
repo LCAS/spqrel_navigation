@@ -341,11 +341,12 @@ class TopologicalLocaliser(object):
             print goal_pose, command
 
             # send goal to QiPlanner
-            self.memProxy.raiseEvent(command, goal_pose)
 
             nTry = 0
 
             while nTry < self._max_retries and not self.goal_reached:
+                self.memProxy.raiseEvent(command, goal_pose)
+		sleep(1)
                 print "monitored_nav attempt %d to %s" % (nTry, gnode.name)
                 while not self.cancelled and not self.goal_reached:
                     time.sleep(0.1)

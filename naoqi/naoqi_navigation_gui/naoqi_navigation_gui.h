@@ -42,6 +42,7 @@ namespace naoqi_navigation_gui {
     UnsignedCharImage _map_image;
     IntImage _indices_image;
     
+    Vector2fVector _laser_points;
     float _usable_range;
     bool _move_enabled;
     bool _collision_protection_enabled, _collision_protection_desired;
@@ -76,6 +77,9 @@ namespace naoqi_navigation_gui {
     qi::AnyObject _subscriber_collision_protection_enabled;
     qi::SignalLink _signal_collision_protection_enabled_id;
     void onExternalCollisionProtectionEnabled(qi::AnyValue value);
+    qi::AnyObject _subscriber_goal;
+    qi::SignalLink _signal_goal_id;
+    void onGoal(qi::AnyValue value);
     
     //! GUI stuff
     static void onMouse( int event, int x, int y, int, void* v);

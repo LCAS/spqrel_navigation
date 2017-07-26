@@ -1,6 +1,7 @@
 #include "naoqi_navigation_gui.h"
 
 namespace naoqi_navigation_gui {
+  using namespace naoqi_sensor_utils;
 
 
   NAOqiNavigationGUI::NAOqiNavigationGUI(qi::SessionPtr session){
@@ -105,6 +106,25 @@ namespace naoqi_navigation_gui {
     }
   }
 
+  void NAOqiNavigationGUI::onGoal(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> GOAL CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    srrg_core::FloatVector goal = value.toList<float>();
+    if (goal.size() != 2){
+      std::cerr << "not a valid goal" << std::endl;
+      return;
+    }
+
+    // we receive the goal in world coordinates [m]
+
+    Eigen::Vector3f vgoal(goal[0], goal[1], 0);
+    std::cerr << "Setting goal [m]: " << vgoal.transpose() << std::endl;
+    Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(vgoal);
+
+    _goal = world2grid(Eigen::Vector2f(goal_transform.translation().x(), goal_transform.translation().y()));
+
+    _have_goal = true;
+  }
+
   void NAOqiNavigationGUI::onExternalCollisionProtectionEnabled(qi::AnyValue value){
     std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> External Collision Protection Enabled CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     _collision_protection_enabled = value.as<bool>();
@@ -127,6 +147,10 @@ namespace naoqi_navigation_gui {
     _subscriber_collision_protection_enabled = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/ExternalCollisionProtectionEnabled");
     _signal_collision_protection_enabled_id = _subscriber_collision_protection_enabled.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiNavigationGUI::onExternalCollisionProtectionEnabled, this, _1))));
     
+    //subscribe to goal changes
+    _subscriber_goal = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Goal");
+    _signal_goal_id = _subscriber_goal.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiNavigationGUI::onGoal, this, _1))));
+
     _stop_thread=false;
     _servicesMonitorThread = std::thread(&NAOqiNavigationGUI::servicesMonitorThread, this);
     std::cerr << "Planner GUI Services Monitor Thread launched." << std::endl;
@@ -134,6 +158,7 @@ namespace naoqi_navigation_gui {
 
   void NAOqiNavigationGUI::unsubscribeServices(){
     _subscriber_status.disconnect(_signal_status_id);
+    _subscriber_goal.disconnect(_signal_goal_id);
     _stop_thread=true;
     _servicesMonitorThread.join();
   }
@@ -159,7 +184,7 @@ namespace naoqi_navigation_gui {
 	std::cerr << "NAOqiLocalizer/RobotPose not available" << std::endl;
       }
       //get laser
-      //Vector2fVector laser_points = getLaser(memory_service, _usable_range);
+      _laser_points = getLaser(_memory_service);
 
       try{
 	//get path
@@ -229,6 +254,7 @@ namespace naoqi_navigation_gui {
     int occ_threshold = (1.0 - _occ_threshold) * 255;
     int free_threshold = (1.0 - _free_threshold) * 255;
     grayMap2indices(_indices_image, _map_image, occ_threshold, free_threshold);
+
   }
   
 
@@ -260,6 +286,14 @@ namespace naoqi_navigation_gui {
 		 cv::Scalar(0,0,0));
 	
       }
+    }
+
+    //Draw laserscans
+    for (size_t i=0; i<_laser_points.size(); i++){
+      Eigen::Vector2f lp=v2t(_robot_pose)* _laser_points[i];
+      int r = lp.x()*_map_inverse_resolution;
+      int c = lp.y()*_map_inverse_resolution;
+      cv::circle(shown_image, cv::Point(c, r), 3, cv::Scalar(200,200,0));
     }
 
     char buf[1024];

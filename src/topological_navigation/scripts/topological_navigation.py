@@ -102,12 +102,14 @@ class TopologicalLocaliser(object):
         self.loc_timer.start()
         # self.nav_timer = Timer(1.0, self._nav_timer)
         # self.nav_timer.start()
+        self._last_status = 'UNKNOWN'
         signal.signal(signal.SIGINT, self._on_shutdown)
         signal.pause()
 
     def _on_goal(self, goal):
         print('on_goal: %s' % goal)
         print "NEW GOAL " + goal
+        self._last_status = 'UNKNOWN'
         if goal == '':
             # empty goal means abort!
             self.goal_reached = False
@@ -148,7 +150,9 @@ class TopologicalLocaliser(object):
         self.goal_reached = True
 
     def _on_qiplanner_status(self, data):
-        print('on_qiplanner_status: %s' % data)
+        if data != self._last_status:
+            print('on_qiplanner_status: %s' % data)
+        self._last_status = data
         if data == 'GoalReached':
             if self.current_target == self.current_node:
                 self.goal_reached = True
@@ -336,15 +340,17 @@ class TopologicalLocaliser(object):
             nTry = 0
 
             while nTry < self._max_retries and not self.goal_reached:
-                print "monitored_nav attempt %d" % nTry
+                print "monitored_nav attempt %d to %s" % (nTry, gnode.name)
                 while not self.cancelled and not self.goal_reached:
                     time.sleep(0.1)
 
                 if self.goal_reached:
                     nav_ok = True
+                    print "  succeeded going to %s" % gnode.name
                     self.memProxy.raiseEvent("TopologicalNav/Status",
                                              "PlannerSuccesful")
                 elif self.cancelled:
+                    print "  FAILED going to %s" % gnode.name
                     nav_ok = False
                     if self.fail_code == 0:
                         failmsg = "ReachedWrongNode " + self.failed_to
@@ -395,9 +401,7 @@ class TopologicalLocaliser(object):
 
     def _on_shutdown(self, signal, frame):
         print('You pressed Ctrl+C!')
-        global myBroker
         self.cancelled = True
-        myBroker.shutdown()
         self.loc_timer.cancel()
         self.nav_timer.cancel()
         sys.exit(0)

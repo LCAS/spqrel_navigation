@@ -85,9 +85,10 @@ namespace naoqi_planner {
     DijkstraPathSearch _path_calculator;
     int _max_distance_map_index;
     
-    Vector2iVector _path;
+    Vector2iVector _path, _nominal_path, _obstacle_path;
     bool _move_enabled;
     bool _collision_protection_enabled, _collision_protection_desired;
+    void computePath(FloatImage& cost_map, PathMap& path_map, Eigen::Vector2i& goal, Vector2iVector &path);
     void computeControlToWaypoint(float& v, float& w);
     float _prev_v, _prev_w;
 

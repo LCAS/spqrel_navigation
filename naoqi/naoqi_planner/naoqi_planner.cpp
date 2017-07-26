@@ -35,6 +35,11 @@ namespace naoqi_planner {
 
     _time_last_reloc = std::chrono::steady_clock::now();
 
+    _path.clear();
+    _nominal_path.clear();
+    _obstacle_path.clear();
+
+
   }
 
   void NAOqiPlanner::initGUI(){
@@ -162,18 +167,6 @@ namespace naoqi_planner {
 
 
       //Draw path
-      /*if (_robot_pose_image.x()>=0 && _have_goal){
-	PathMapCell* current=&_path_map(_robot_pose_image.x(), _robot_pose_image.y());
-	while (current&& current->parent && current->parent!=current) {
-	  PathMapCell* parent=current->parent;
-	  cv::line(shown_image,
-		   cv::Point(current->c, current->r),
-		   cv::Point(parent->c, parent->r),
-		   cv::Scalar(0.0f));
-	  current = current->parent;
-	}
-	}*/
-
       if (_have_goal && _path.size()>1){
 	for (size_t i=0; i<_path.size()-1; i++){
 	  Eigen::Vector2i cell_from = _path[i];
@@ -182,6 +175,20 @@ namespace naoqi_planner {
 		   cv::Point(cell_from.y(), cell_from.x()),
 		   cv::Point(cell_to.y(), cell_to.x()),
 		   cv::Scalar(0.0f));
+	}
+
+	if (_nominal_path.size()>1){
+	  for (size_t i=0; i<_nominal_path.size()-1; i++){
+
+	  Eigen::Vector2i cell_from = _nominal_path[i];
+	  Eigen::Vector2i cell_to   = _nominal_path[i+1];
+	  cv::line(shown_image,
+		   cv::Point(cell_from.y(), cell_from.x()),
+		   cv::Point(cell_to.y(), cell_to.x()),
+		   cv::Scalar(0.5f));
+	  
+	  
+	  }
 	}
       }
 
@@ -401,66 +408,49 @@ namespace naoqi_planner {
 	_restart = false;
 	
       } 
-      std::chrono::steady_clock::time_point time_dmap_start = std::chrono::steady_clock::now();
-      _distance_map.data()=_distance_map_backup;
-
-      if (_laser_points.size()>0) {
-
-          _dyn_map.setMapResolution(_map_resolution);
-          _dyn_map.setRobotPose(robot_pose_transform);
-          _dyn_map.setCurrentPoints(_laser_points);
-          _dyn_map.compute();
-          Vector2iVector obstacle_points;
-          _dyn_map.getOccupiedCells(obstacle_points);
-          
-          
-          _dmap_calculator.setPoints(obstacle_points, _max_distance_map_index);
-          _dmap_calculator.compute();
-
-      }else{
-	std::cerr << "WARNING: laser data not available." << std::endl;
-      }
-
-
-      _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
-      distances2cost(_cost_image,
-	         _distance_image,
-	         _robot_radius,
-	         _safety_region,
-	         _min_cost,
-	         _max_cost);
-
-      std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
-      std::cerr << "DMapCalculator: "
-		<< std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
-      
-
-
 
       if (_have_goal){
-	std::chrono::steady_clock::time_point time_path_start = std::chrono::steady_clock::now();
-	_path_calculator.setMaxCost(_max_cost-1);
-	_path_calculator.setCostMap(_cost_image);
-	_path_calculator.setOutputPathMap(_path_map);
-	Vector2iVector goals;
-	goals.push_back(_goal);
-	_path_calculator.goals() = goals;
-	_path_calculator.compute();
-	std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
+	//Get nominal path without obstacles
+	computePath(_cost_image_backup, _path_map_backup, _goal, _nominal_path);
 
-	std::cerr << "PathCalculator: "
-		  << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl;
+	//Adding obstacles
+	std::chrono::steady_clock::time_point time_dmap_start = std::chrono::steady_clock::now();
+	_distance_map.data()=_distance_map_backup;
 
-	_path.clear();
-	// Filling path
-	PathMapCell* current=&_path_map(_robot_pose_image.x(), _robot_pose_image.y());
-	while (current&& current->parent && current->parent!=current) {
-	  PathMapCell* parent=current->parent;
-	  _path.push_back(Eigen::Vector2i(current->r, current->c));
-	  current = current->parent;
+	if (_laser_points.size()>0) {
+	  
+	  _dyn_map.setMapResolution(_map_resolution);
+	  _dyn_map.setRobotPose(robot_pose_transform);
+	  _dyn_map.setCurrentPoints(_laser_points);
+	  _dyn_map.compute();
+	  Vector2iVector obstacle_points;
+	  _dyn_map.getOccupiedCells(obstacle_points);
+	  
+	  _dmap_calculator.setPoints(obstacle_points, _max_distance_map_index);
+	  _dmap_calculator.compute();
+	  
+	}else{
+	  std::cerr << "WARNING: laser data not available." << std::endl;
 	}
+	
+	_distance_image = _dmap_calculator.distanceImage()*_map_resolution;
+	distances2cost(_cost_image,
+		       _distance_image,
+		       _robot_radius,
+		       _safety_region,
+		       _min_cost,
+		       _max_cost);
 
-	if (!_path.size()){
+	std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
+	std::cerr << "DMapCalculator: "
+		  << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
+	
+	computePath(_cost_image, _path_map, _goal, _obstacle_path);
+
+	float path_diff_threshold = 1.5; //meters
+	int num_path_diff_cells = path_diff_threshold * _map_inverse_resolution;
+
+	//if (!_path.size() ){
 	  //Check the reason of not path found
 	  //1) goal is on an obstacle,
 	  //2) robot is badly localized so obstacles are projected wrongly into the map
@@ -481,7 +471,18 @@ namespace naoqi_planner {
 	    
 	    }*/
 
+	  //recoveryPlan();
+	  //}
+
+	//We try to follow the nominal path always, toponav would be in charge of replanning the global path
+	
+	if (!_obstacle_path.size() || (_obstacle_path.size() - _nominal_path.size()) > num_path_diff_cells){
+	  //no path with obstacles, or path very different from nominal once, we try to approach obstacle
+	  //Recovery path
 	  recoveryPlan();
+	}else{
+	  //everything is fine, we use the path with obstacles
+	  _path = _obstacle_path;
 	}
 
 	publishPath();
@@ -557,11 +558,31 @@ namespace naoqi_planner {
     }
     
     
+  } 
+
+  void NAOqiPlanner::computePath(FloatImage& cost_map, PathMap& path_map, Eigen::Vector2i& goal, Vector2iVector &path){
+    std::chrono::steady_clock::time_point time_path_start = std::chrono::steady_clock::now();
+    _path_calculator.setMaxCost(_max_cost-1);
+    _path_calculator.setCostMap(cost_map);
+    _path_calculator.setOutputPathMap(path_map);
+    Vector2iVector goals;
+    goals.push_back(goal);
+    _path_calculator.goals() = goals;
+    _path_calculator.compute();
+    std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
+    path.clear();
+    // Filling path
+    PathMapCell* current=&path_map(_robot_pose_image.x(), _robot_pose_image.y());
+    while (current&& current->parent && current->parent!=current) {
+      PathMapCell* parent=current->parent;
+      path.push_back(Eigen::Vector2i(current->r, current->c));
+      current = current->parent;
+    }
   }
 
   void NAOqiPlanner::recoveryPlan(){
     std::cerr << ">>>>>>>>>>> Recovery Plan: Computing path without obstacles <<<<<<<<<<" << std::endl;
-    
+    /*
     std::chrono::steady_clock::time_point time_path_start = std::chrono::steady_clock::now();
     _path_calculator.setMaxCost(_max_cost-1);
     _path_calculator.setCostMap(_cost_image_backup);
@@ -574,6 +595,7 @@ namespace naoqi_planner {
 
     std::cerr << "PathCalculator: "
 	      << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl;
+    */
 
     _path.clear();
     // Filling path
@@ -604,7 +626,7 @@ namespace naoqi_planner {
       
     }else {
       std::cerr << ">>>>>>>>>>> Found Path of size: " << _path.size() << std::endl;
-
+      /*
       //removing some cells from the path in front of the obstacle
       float obstacle_distance_threshold = 0.7;
       int num_cells = obstacle_distance_threshold * _map_inverse_resolution;
@@ -615,6 +637,7 @@ namespace naoqi_planner {
 	_path.clear();
 
       std::cerr << ">>>>>>>>>>> Final Path of size: " << _path.size() << std::endl;
+      */
 
     }
   }
@@ -725,7 +748,7 @@ namespace naoqi_planner {
 	}
 	
 	_memory_service.call<void>("insertData", "NAOqiPlanner/Path", path_vector);
-	_memory_service.call<void>("insertData", "NAOqiPlanner/Status", "PathFound");
+	_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Status", "PathFound");
 	std::cerr << "PAthsize: " << _path.size() * _map_resolution << std::endl;
 	FloatVector exec_status;
 	exec_status.push_back(_path.size() * _map_resolution);
@@ -738,7 +761,7 @@ namespace naoqi_planner {
 
 	exec_status.push_back(angle_goal);
 
-	_memory_service.call<void>("insertData", "NAOqiPlanner/ExecutionStatus",  exec_status);
+	_memory_service.call<void>("raiseEvent", "NAOqiPlanner/ExecutionStatus",  exec_status);
       }else {
 	FloatVector exec_status;
 	Eigen::Vector2f goal_world = grid2world(_goal);
@@ -756,7 +779,7 @@ namespace naoqi_planner {
 
 
 
-	_memory_service.call<void>("insertData", "NAOqiPlanner/Status", "PathNotFound");
+	_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Status", "PathNotFound");
       }
     }
   }

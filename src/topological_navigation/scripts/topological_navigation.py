@@ -342,6 +342,7 @@ class TopologicalLocaliser(object):
             nav_ok = True
             self.goal_reached = True
         else:
+            nav_ok = False
             gpose = gnode.pose
             self.goal_reached = False
 
@@ -378,7 +379,7 @@ class TopologicalLocaliser(object):
                         self.memProxy.raiseEvent("TopologicalNav/Status", failmsg)
                 # wait a bit before a retry.
                 n = 0
-                while m < nTry and not self.cancelled:
+                while n < nTry and not self.cancelled:
                     n += 1
                     sleep(1)
                 nTry += 1

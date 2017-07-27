@@ -206,6 +206,8 @@ class TopologicalLocaliser(object):
         if pre_curnod != self.current_node:
             self.memProxy.raiseEvent("TopologicalNav/CurrentNode",
                                      self.current_node)
+            self.memProxy.insertData("TopologicalNav/LastNode",
+                                     self.current_node)
             print self.current_node
         if pre_clonod != self.closest_node:
             self.memProxy.raiseEvent("TopologicalNav/ClosestNode",

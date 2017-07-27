@@ -361,6 +361,11 @@ class TopologicalLocaliser(object):
                 print "monitored_nav attempt %d to %s" % (nTry, gnode.name)
                 self.failure = False
                 while not self.cancelled and not self.goal_reached and not self.failure:
+                    if self.current_node == gnode.name:
+                        print "we are in reach of the goal, so let's report success"
+                        self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+                        return True
+
                     time.sleep(0.1)
 
                 if self.goal_reached:

@@ -104,6 +104,14 @@ class TopologicalLocaliser(object):
         # self.nav_timer.start()
         self._last_status = 'UNKNOWN'
         self.goal_active = False
+        self.memProxy.raiseEvent("TopologicalNav/CurrentNode",
+                                 self.current_node)
+        self.memProxy.insertData("TopologicalNav/LastNode",
+                                 self.current_node)
+        print self.current_node
+        self.memProxy.raiseEvent("TopologicalNav/ClosestNode",
+                                 self.closest_node)
+        print self.closest_node
         signal.signal(signal.SIGINT, self._on_shutdown)
         signal.pause()
 

@@ -1,0 +1,29 @@
+<launch>
+    <arg name="namespace" default="spqrel_navigation"/>
+    <arg name="respawn" default="false"/>
+    <arg name="particles" default="2000"/>
+    <arg name="max_range" default="10"/>
+    <arg name="min_valid_beams" default="30"/>
+    <arg name="min_weight" default="200.0"/>
+    <arg name="distance_threshold" default="1.0"/>
+    <arg name="dynamic_restart" default="false"/>
+    <arg name="use_gui" default="false"/>
+    <arg name="odom_frame_id" default="odom"/>
+    <arg name="base_frame_id" default="base_link"/>
+    <arg name="global_frame_id" default="map"/>
+    <arg name="laser_topic" default="base_scan"/>
+    <node name="spqrel_navigation" pkg="spqrel_navigation" type="srrg_localizer2d_node" output="screen">
+        <param name="particles" value="$(arg particles)"/>
+        <param name="max_range" value="$(arg max_range)"/>
+        <param name="min_valid_beams" value="$(arg min_valid_beams)"/>
+        <param name="min_weight" value="$(arg min_weight)"/>
+        <param name="distance_threshold" value="$(arg distance_threshold)"/>
+        <param name="dynamic_restart" value="$(arg dynamic_restart)"/>
+        <param name="use_gui" value="$(arg use_gui)"/>
+        <param name="odom_frame_id" value="$(arg odom_frame_id)"/>
+        <param name="base_frame_id" value="$(arg base_frame_id)"/>
+        <param name="global_frame_id" value="$(arg global_frame_id)"/>
+        <param name="laser_topic" value="$(arg laser_topic)"/>
+        <remap from="base_scan" to="$(arg laser_topic)"/>
+    </node>
+</launch>

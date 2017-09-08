@@ -525,7 +525,7 @@ void ROSPlanner::dynamicReconfigureCallback(thin_navigation::ThinNavigationConfi
 
 void ROSPlanner::subscribeCallbacks(const std::string& laser_topic){
     _laser_topic=laser_topic;
-    _laser_sub=_nh.subscribe(_laser_topic, 10, &ROSPlanner::laserCallback, this);
+    _laser_sub=_nh.subscribe(_laser_topic, 1, &ROSPlanner::laserCallback, this);
     _goal_simple_sub = _nh.subscribe("move_base_simple/goal", 2, &ROSPlanner::setGoalCallback, this);
     _cancel_sub = _nh.subscribe("move_base/cancel", 2, &ROSPlanner::setCancelCallback, this);
     _cmd_vel_pub = _nh.advertise<geometry_msgs::Twist>(_command_vel_topic, 1);

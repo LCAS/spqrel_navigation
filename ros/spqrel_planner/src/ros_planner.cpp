@@ -334,10 +334,10 @@ void ROSPlanner::executeCB(const move_base_msgs::MoveBaseGoalConstPtr& move_base
 
     geometry_msgs::PoseStampedConstPtr  ps_ptr (new geometry_msgs::PoseStamped(ps));
     _action_result="";
-    setGoalCallback(ps_ptr);
+    setGoalCallback(ps_ptr);     
     move_base_msgs::MoveBaseFeedback feed;
-    ros::Rate r(10); // 10 hz
-    while(_action_result=="" && !_as.isPreemptRequested()){
+    ros::Rate r(10); // 10 Hz
+    while(_action_result=="" && !_as.isPreemptRequested() && ros::ok()){
         r.sleep();
         _as.publishFeedback(feed);
     }
@@ -373,7 +373,7 @@ void ROSPlanner::setCancelCallback(const actionlib_msgs::GoalID& msg) {
 
 void ROSPlanner::preemptCB() {
     ROS_INFO("Goal Preempted!!!");
-     _planner.cancelGoal();
+    _planner.cancelGoal();
     stopRobot();
 
 }
@@ -490,6 +490,7 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
     _planner.setRobotPose(robot_pose);
 
+
     Vector2fVector endpoints(msg->ranges.size());
     rangesToEndpoints(endpoints, laser_pose, msg);
     
@@ -499,7 +500,6 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
     _planner.setLaserPoints(endpoints);
 
     _planner.plannerStep();
-
 
     geometry_msgs::Twist req_twist;
     req_twist.linear.x = _planner._linear_vel;
@@ -582,6 +582,8 @@ void ROSPlanner::requestMap() {
 
 void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
 
+    if (_have_map && _planner.haveGoal()) { return; }
+
     ROS_INFO("Map info: WIDTH: %d, HEIGHT: %d, RESOLUTION: %f",
                 msg.info.width,msg.info.height,msg.info.resolution);
 
@@ -617,6 +619,7 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
     cerr << "map origin: " << map_origin.transpose() << endl;
 
     _planner.setMapFromImage(map_image,msg.info.resolution,map_origin, 0.65, 0.05);
+    _planner.reset();
     _have_map = true;
 
 #if 0

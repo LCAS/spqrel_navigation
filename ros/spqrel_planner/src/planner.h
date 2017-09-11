@@ -60,7 +60,9 @@ namespace spqrel_navigation {
  
     void setGoal(Eigen::Vector3f vgoal);
     void cancelGoal();
+    inline bool haveGoal() { return _have_goal; }
 
+    void reset(); // reset all data structures 
     void plannerStep();
 
     float _linear_vel, _angular_vel;
@@ -102,7 +104,6 @@ namespace spqrel_navigation {
 
     float _usable_range;
     bool _restart;
-    void reset();
     
     bool _have_goal;
     Eigen::Vector2i _goal; // goal: image coords

@@ -42,6 +42,7 @@ public:
 
     //! init stuff
     void init();
+    void initEmptyMap();
 
     //! quit stuff
     void quit();
@@ -82,8 +83,9 @@ protected:
     std::string _base_frame_id; //< frame of the robot
     std::string _global_frame_id;  //< frame of the map
     std::string _map_service_id;  //< name of map service
+    std::string _map_topic;  //< name of map service
     std::string _command_vel_topic;  //< topic for the command vel
-    std::string _temp_topic;  //< topic for the command vel
+    std::string _temp_topic;  //< topic for ???
     std::string _path_topic;
     std::string _global_path_topic;
     std::string _nearest_object_topic;
@@ -109,6 +111,7 @@ protected:
     ros::Subscriber _laser_sub; //< subscriber for laser messages
     ros::Subscriber _goal_simple_sub; //< subscriber for the set_goal
     ros::Subscriber _cancel_sub; //< subscriber for the cancel_goal
+    ros::Subscriber _map_sub; //< subscriber for the map
     ros::Time _last_observation_time;   //< stores the last time an observation has been processed,
     //<to keep the timestamps of the transforms consistent
     ros::Time _curr_controller_time;
@@ -172,6 +175,7 @@ protected:
     bool _set_goal;          //! set_goal mode (to be toggled with "s")
     //bool _have_goal;
     //bool _have_wait;
+    bool _have_map;          //! a map has been retrieved
     int _wait;
     void executePath();
 

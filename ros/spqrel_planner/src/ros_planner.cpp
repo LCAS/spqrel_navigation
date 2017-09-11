@@ -144,6 +144,7 @@ ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
     _global_frame_id = "/map";
     _base_frame_id = "base_footprint_frame";
     _command_vel_topic = "cmd_vel";
+    _map_topic = "map";
     _temp_topic = "next_pose";
     _path_topic = "path";
     _global_path_topic = "global_path";
@@ -163,6 +164,8 @@ ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
     prev_tv=0;
     prev_rv=0;
     _action_result="";
+    _have_map = false;
+
     _as.registerPreemptCallback(boost::bind(&ROSPlanner::preemptCB, this) );
     _as.start();
 }
@@ -380,7 +383,7 @@ void ROSPlanner::init() {
     // subscribe to laser topic (main execution thread for the planner)
     subscribeCallbacks(_laser_topic);
 
-    std::cerr << "ROSPlanner subscribing to laser topic: " << _laser_topic << std::endl;
+    initEmptyMap();
 
     if (_use_gui)
         _planner.initGUI();
@@ -429,6 +432,9 @@ void ROSPlanner::rangesToEndpoints(Vector2fVector& endpoints,
 
 
 void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
+
+    if (!_have_map) return;
+
     _last_observation_time = msg->header.stamp;
 
     std::string error;
@@ -524,14 +530,26 @@ void ROSPlanner::dynamicReconfigureCallback(thin_navigation::ThinNavigationConfi
 #endif
 
 void ROSPlanner::subscribeCallbacks(const std::string& laser_topic){
+     std::cerr << "ROSPlanner subscribers to: " << _laser_topic << " " <<
+        _map_topic << " " << "move_base_simple/goal" << " " << "move_base/cancel" <<
+        std::endl;
+
     _laser_topic=laser_topic;
     _laser_sub=_nh.subscribe(_laser_topic, 1, &ROSPlanner::laserCallback, this);
     _goal_simple_sub = _nh.subscribe("move_base_simple/goal", 2, &ROSPlanner::setGoalCallback, this);
     _cancel_sub = _nh.subscribe("move_base/cancel", 2, &ROSPlanner::setCancelCallback, this);
+    _map_sub = _nh.subscribe(_map_topic, 1, &ROSPlanner::mapMessageCallback, this);
+
+     std::cerr << "ROSPlanner publishers: " << _command_vel_topic << " " <<
+        _nearest_object_topic << " " << _temp_topic << " " << _path_topic <<
+        std::endl;
+
+
     _cmd_vel_pub = _nh.advertise<geometry_msgs::Twist>(_command_vel_topic, 1);
     _nearest_pub = _nh.advertise<std_msgs::Float32>(_nearest_object_topic,-1);
     _temp_pub = _nh.advertise<nav_msgs::OccupancyGrid>(_temp_topic, 1);
     _path_pub= _nh.advertise<nav_msgs::Path>(_path_topic,1);
+
     //if(_compute_global_path)
     //    _global_path_pub= _nh.advertise<nav_msgs::Path>(_global_path_topic,1);
 
@@ -539,18 +557,26 @@ void ROSPlanner::subscribeCallbacks(const std::string& laser_topic){
     //_server.setCallback(_function);
 }
 
+
 void ROSPlanner::requestMap() {
     // get map via RPC
     nav_msgs::GetMap::Request  req;
     nav_msgs::GetMap::Response resp;
-    ROS_INFO("Requesting the map... ");
-    while(!ros::service::call(_map_service_id, req, resp) && ros::ok()){
+    ROS_INFO_STREAM("Requesting the map on service " << _map_service_id << " ... ");
+    int ntry = 5;
+    while(!ros::service::call(_map_service_id, req, resp) && ros::ok() && ntry-->0){
         ROS_WARN("Request for map to service %s failed; trying again...",_map_service_id.c_str());
-        ros::Duration d(0.5);
-        d.sleep();
+        ros::Duration d(1.0);
+        ros::spinOnce(); d.sleep();
+        ros::spinOnce(); d.sleep();
+        ros::spinOnce(); d.sleep();
     }
-    ROS_INFO("Map received.");
-    mapMessageCallback(resp.map);
+    if (ntry>0) {
+        ROS_INFO("Map received from service.");
+        mapMessageCallback(resp.map);
+        return;
+    }
+
 }
 
 
@@ -558,7 +584,6 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
 
     ROS_INFO("Map info: WIDTH: %d, HEIGHT: %d, RESOLUTION: %f",
                 msg.info.width,msg.info.height,msg.info.resolution);
-
 
     UnsignedCharImage map_image(msg.info.width, msg.info.height);  // cols, rows
     int k=0;
@@ -575,7 +600,7 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
                 d=0;
             else
                 d=255;
-            int c1 = r, r1 = msg.info.height-c;
+            // int c1 = r, r1 = msg.info.height-c;
             map_image.at<unsigned char>(r,c)=(unsigned char)(d);
             k++;
         }
@@ -592,6 +617,7 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
     cerr << "map origin: " << map_origin.transpose() << endl;
 
     _planner.setMapFromImage(map_image,msg.info.resolution,map_origin, 0.65, 0.05);
+    _have_map = true;
 
 #if 0
     // setMap(map_image, msg.info.resolution, 10, 230);
@@ -603,6 +629,32 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
 
     init();
 #endif
+
+}
+
+
+
+void ROSPlanner::initEmptyMap() {
+
+    double width = 10.0, height = 10.0, resolution = 0.05;
+
+    ROS_INFO("Init empty map info: WIDTH: %f, HEIGHT: %f, RESOLUTION: %f",
+                width,height,resolution);
+
+    UnsignedCharImage map_image(width, height);  // cols, rows
+    int k=0;
+
+    for(int c=0; c<map_image.cols; c++) {
+        for(int r=0; r<map_image.rows; r++) {
+            int d=255; // free space
+            map_image.at<unsigned char>(r,c)=(unsigned char)(d);
+        }
+    }
+
+    Eigen::Vector3f map_origin(0.0, 0.0, 0.0);
+    cerr << "map origin: " << map_origin.transpose() << endl;
+
+    _planner.setMapFromImage(map_image,resolution,map_origin, 0.65, 0.05);
 
 }
 

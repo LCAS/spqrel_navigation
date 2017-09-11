@@ -2,6 +2,9 @@
 #include "srrg_ros_wrappers/ros_utils.h"
 #include "srrg_system_utils/system_utils.h"
 
+#include <iostream>
+#include <chrono>
+#include <ctime>
 namespace srrg_localizer2d_ros{
   using namespace std;
   using namespace spqrel_navigation;
@@ -122,6 +125,8 @@ namespace srrg_localizer2d_ros{
       return;
     }
 
+    std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
+
     double t0=getTime();
     if (!_restarted) {
       Eigen::Vector3f control=t2v(v2t(_old_odom_pose).inverse()*v2t(odom_pose));
@@ -162,6 +167,9 @@ namespace srrg_localizer2d_ros{
     _restarted=false;
 
     handleGUIInput();
+    std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
+    int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
+    std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
   }
 
   void ROSLocalizer::handleGUIInput(){

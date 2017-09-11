@@ -375,7 +375,6 @@ void ROSPlanner::preemptCB() {
     ROS_INFO("Goal Preempted!!!");
     _planner.cancelGoal();
     stopRobot();
-
 }
 
 void ROSPlanner::init() {
@@ -584,8 +583,8 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
 
     if (_have_map && _planner.haveGoal()) { return; }
 
-    ROS_INFO("Map info: WIDTH: %d, HEIGHT: %d, RESOLUTION: %f",
-                msg.info.width,msg.info.height,msg.info.resolution);
+    //ROS_INFO("Map info: WIDTH: %d, HEIGHT: %d, RESOLUTION: %f",
+    //            msg.info.width,msg.info.height,msg.info.resolution);
 
     UnsignedCharImage map_image(msg.info.width, msg.info.height);  // cols, rows
     int k=0;
@@ -616,7 +615,7 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
     Eigen::Vector3f map_origin(pose.getOrigin().x(),
                                pose.getOrigin().y(),
                                getYaw(pose));
-    cerr << "map origin: " << map_origin.transpose() << endl;
+    // cerr << "map origin: " << map_origin.transpose() << endl;
 
     _planner.setMapFromImage(map_image,msg.info.resolution,map_origin, 0.65, 0.05);
     _planner.reset();

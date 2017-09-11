@@ -57,7 +57,7 @@ using namespace std;
   }
 
   void Planner::reset(){
-    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> RESET <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    // std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> RESET <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
 
     _restart = true;
     cancelGoal();
@@ -220,7 +220,7 @@ cout << " ... after cv::imshow ..." << endl;
     Eigen::Vector3f map_origin, float occ_threshold, float free_threshold) {
 
 
-    std::cerr << "Set map from image " << map_image.rows << "x" << map_image.cols << std::endl;
+    // std::cerr << "Set map from image " << map_image.rows << "x" << map_image.cols << std::endl;
 
     _map_image = map_image.clone();
     _map_resolution = map_resolution;
@@ -404,6 +404,8 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
 
   void Planner::plannerStep() {
 
+    _linear_vel = 0.0;
+    _angular_vel = 0.0;
 
       if (!_have_goal && !_use_gui)
           return;
@@ -412,18 +414,18 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
 
 
       Eigen::Vector3f robot_pose_vector = _robot_pose;
-      std::cerr << "Robot pose: " << robot_pose_vector.transpose() << std::endl;
+      //std::cerr << "Robot pose: " << robot_pose_vector.transpose() << std::endl;
 
       Eigen::Isometry2f robot_pose_transform=_image_map_origin_transform_inverse*v2t(robot_pose_vector);
 
 
       _robot_pose_image_m = t2v(robot_pose_transform); // image coordinates
 
-      std::cerr << "Image pose [m]: " << _robot_pose_image_m.transpose() << std::endl;
+      //std::cerr << "Image pose [m]: " << _robot_pose_image_m.transpose() << std::endl;
 
       _robot_pose_image = world2grid(Eigen::Vector2f(_robot_pose_image_m.x(), _robot_pose_image_m.y()));
 
-      std::cerr << "Image pose [pixel]: " << _robot_pose_image.transpose() << std::endl;
+      //std::cerr << "Image pose [pixel]: " << _robot_pose_image.transpose() << std::endl;
 
 
 
@@ -435,11 +437,11 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
         _dmap_calculator.init();
         _max_distance_map_index = _dmap_calculator.maxIndex();
 
-        cout << "   _max_distance_map_index " << _max_distance_map_index << endl;
+        //cout << "   _max_distance_map_index " << _max_distance_map_index << endl;
 
         _dmap_calculator.compute();
         _distance_map_backup=_distance_map.data();
-        cout << "Dmap_calculator init." << endl;
+        // cout << "Dmap_calculator init." << endl;
         _restart = false;
 
         _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
@@ -481,8 +483,8 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
       // cv::imwrite("debug_map.png",_map_image);
 
       std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
-      std::cerr << "DMapCalculator: "
-        << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
+      /* std::cerr << "DMapCalculator: "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl; */
 
 
       if (_have_goal){
@@ -497,13 +499,13 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
         std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
 
 
-        cerr << "Goal [m]: " << _goal_w.transpose() << endl;
-        cerr << "Goal [pixel]: " << _goal.transpose() << endl;
+        //cerr << "Goal [m]: " << _goal_w.transpose() << endl;
+        //cerr << "Goal [pixel]: " << _goal.transpose() << endl;
 
 
-
+        /*
         std::cerr << "PathCalculator: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl;
+              << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl; */
 
         _path.clear();
         // Filling path
@@ -515,7 +517,7 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
           current = current->parent;
         }
 
-        cerr << "Path size: " << _path.size() << endl;
+        // cerr << "Path size: " << _path.size() << endl;
         publishPath();
 
         _linear_vel=0; _angular_vel=0;
@@ -523,7 +525,7 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
         if (_move_enabled){
 
           //apply vels
-          std::cerr << "Applying vels: " << _linear_vel  << " " << _angular_vel << std::endl;
+          // std::cerr << "Applying vels: " << _linear_vel  << " " << _angular_vel << std::endl;
 
         }else{
           _prev_v = 0;
@@ -543,7 +545,7 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
 
       std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
       int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
-      std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
+      // std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
 //      if (cycle_ms < _cycle_time_ms)
 //        usleep((_cycle_time_ms-cycle_ms)*1e3);
 
@@ -598,8 +600,8 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
     Eigen::Vector2f robot_pose_xy(_robot_pose_image_m.x(), _robot_pose_image_m.y());
     Eigen::Vector2f distance_goal = nextwp_world - robot_pose_xy;
 
-    cerr << "   robot_pose: " << robot_pose_xy.transpose() << endl;
-    cerr << "   nextwp: " << nextwp_world.transpose() << endl;
+    //cerr << "   robot_pose: " << robot_pose_xy.transpose() << endl;
+    //cerr << "   nextwp: " << nextwp_world.transpose() << endl;
 
 /*
     Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(_goal_w);
@@ -610,7 +612,7 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
 */
 
 
-    cerr << "   angle diff = " << atan2(distance_goal.y(),distance_goal.x()) << " " <<  _robot_pose_image_m.z() << endl;
+    // cerr << "   angle diff = " << atan2(distance_goal.y(),distance_goal.x()) << " " <<  _robot_pose_image_m.z() << endl;
 
 
 
@@ -619,7 +621,7 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
     if (distance_goal.norm() < goal_distance_threshold){
       // std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to goal: " << nextwp.transpose() << std::endl;
       if (isLastWp){
-        std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to last goal" << std::endl;
+        //std::cerr << ">>>>>>>>>>>>>>>>>>>Arrived to last goal" << std::endl;
         v = 0.0;
         w = 0.0;
 
@@ -630,8 +632,8 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
         return;
       }
     }else {
-      std::cerr << "Distance to goal: " << distance_goal.norm() << std::endl;
-      std::cerr << "Angle to goal: " << angle_goal << std::endl;
+      //std::cerr << "Distance to goal: " << distance_goal.norm() << std::endl;
+      //std::cerr << "Angle to goal: " << angle_goal << std::endl;
     }
 
     float force = 2.5;
@@ -651,15 +653,15 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
       F.y() = sin(angleF)*f;
     }
 
-    std::cerr << "Force: " << F.transpose() << std::endl;
+    //std::cerr << "Force: " << F.transpose() << std::endl;
     
     v = (F.x() * T + _prev_v) / (1 + 2*b*T);
-    std::cerr << "V: " << v << std::endl;
+    //std::cerr << "V: " << v << std::endl;
     
     if (v < 0)
       v = 0;
     w = (k_i *h * F.y() * T + _prev_w) / (1 + 2*b*k_i*T);
-    std::cerr << "W: " << w << std::endl;
+    //std::cerr << "W: " << w << std::endl;
     if (fabs(w) < 1e-4)
       w = 0;
 

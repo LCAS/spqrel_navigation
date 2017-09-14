@@ -72,7 +72,7 @@ using namespace std;
     if (! _use_gui)
       return;
 
-    char key=cv::waitKey(10);
+    char key=cv::waitKey(25);
     switch(key) {
     case 'h':
       std::cout << "m: map mode" << std::endl;
@@ -136,11 +136,15 @@ cout << " ... after cv::imshow ..." << endl;
 
   }
 
+#define DEBUG_GUI_DISPLAY 0
 
   void Planner::handleGUIDisplay() {
 
     if (_use_gui) {
 
+#if DEBUG_GUI_DISPLAY
+    cerr << "+++GUI_DISPLAY  shown_image..." << endl;
+#endif
       FloatImage shown_image;
       switch(_what_to_show){
       case Map:
@@ -166,18 +170,22 @@ cout << " ... after cv::imshow ..." << endl;
         shown_image=_cost_image*(1.f/_max_cost);
         break;
       }
+
+#if DEBUG_GUI_DISPLAY
+    cerr << "+++GUI_DISPLAY  drawing..." << endl;
+#endif
       
       // Drawing goal
       if (_have_goal)
 	    cv::circle(shown_image, cv::Point(_goal.y(), _goal.x()), 3, cv::Scalar(0.0f));
 
-        // Drawing current pose
-        cv::rectangle(shown_image,
-            cv::Point(_robot_pose_image.y()+2, _robot_pose_image.x()-2),
-            cv::Point(_robot_pose_image.y()-2, _robot_pose_image.x()+2),
-            cv::Scalar(0.0f));
+      _mtx_display.lock();
 
-
+      // Drawing current pose
+      cv::rectangle(shown_image,
+          cv::Point(_robot_pose_image.y()+2, _robot_pose_image.x()-2),
+          cv::Point(_robot_pose_image.y()-2, _robot_pose_image.x()+2),
+          cv::Scalar(0.0f));
 
       //Draw path
       if (_robot_pose_image.x()>=0 && _have_goal){
@@ -201,6 +209,12 @@ cout << " ... after cv::imshow ..." << endl;
           continue;
         cv::circle(shown_image, cv::Point(c, r), 3, cv::Scalar(1.0f));
       }
+
+      _mtx_display.unlock();
+
+#if DEBUG_GUI_DISPLAY
+    cerr << "+++GUI_DISPLAY  text..." << endl;
+#endif
       
       char buf[1024];
       sprintf(buf, " MoveEnabled: %d", _move_enabled);
@@ -210,6 +224,12 @@ cout << " ... after cv::imshow ..." << endl;
       sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
       cv::putText(shown_image, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(1.0f), 1);
 
+
+#if DEBUG_GUI_DISPLAY
+    cerr << "+++GUI_DISPLAY  show..." << endl;
+#endif
+
+      // BIG FAT WARNING !!! deadlock here !!!
       cv::imshow("spqrel_planner", shown_image);
 
     }
@@ -401,6 +421,7 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
     //setExternalCollisionProtectionEnabled(true);
   }
 
+#define DEBUG_PLANNER_STEP 0
 
   void Planner::plannerStep() {
 
@@ -414,19 +435,23 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
 
 
       Eigen::Vector3f robot_pose_vector = _robot_pose;
-      //std::cerr << "Robot pose: " << robot_pose_vector.transpose() << std::endl;
 
+#if DEBUG_PLANNER_STEP
+      std::cerr << "Robot pose: " << robot_pose_vector.transpose() << std::endl;
+#endif
       Eigen::Isometry2f robot_pose_transform=_image_map_origin_transform_inverse*v2t(robot_pose_vector);
 
 
       _robot_pose_image_m = t2v(robot_pose_transform); // image coordinates
 
-      //std::cerr << "Image pose [m]: " << _robot_pose_image_m.transpose() << std::endl;
-
+#if DEBUG_PLANNER_STEP
+      std::cerr << "Image pose [m]: " << _robot_pose_image_m.transpose() << std::endl;
+#endif
       _robot_pose_image = world2grid(Eigen::Vector2f(_robot_pose_image_m.x(), _robot_pose_image_m.y()));
 
-      //std::cerr << "Image pose [pixel]: " << _robot_pose_image.transpose() << std::endl;
-
+#if DEBUG_PLANNER_STEP
+      std::cerr << "Image pose [pixel]: " << _robot_pose_image.transpose() << std::endl;
+#endif
 
 
       //here I'll do something map + loc + laser + goal -> path
@@ -437,7 +462,9 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
         _dmap_calculator.init();
         _max_distance_map_index = _dmap_calculator.maxIndex();
 
-        //cout << "   _max_distance_map_index " << _max_distance_map_index << endl;
+#if DEBUG_PLANNER_STEP
+        cerr << "   _max_distance_map_index " << _max_distance_map_index << endl;
+#endif
 
         _dmap_calculator.compute();
         _distance_map_backup=_distance_map.data();
@@ -446,8 +473,10 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
 
         _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
         FloatImage shown_image=_distance_image*(1./_safety_region);
+#if DEBUG_PLANNER_STEP
         cv::imwrite("debug_distmap.png",_distance_image);
         cv::imwrite("debug_indices.png",_indices_image);
+#endif
 
       }
 
@@ -472,6 +501,10 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
       }
 
 
+#if DEBUG_PLANNER_STEP
+      cerr << "Computing costs..." << endl;
+#endif
+
       _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
       distances2cost(_cost_image,
              _distance_image,
@@ -483,29 +516,45 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
       // cv::imwrite("debug_map.png",_map_image);
 
       std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
-      /* std::cerr << "DMapCalculator: "
-        << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl; */
+
+
+#if DEBUG_PLANNER_STEP
+      std::cerr << "DMapCalculator: "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
+#endif
 
 
       if (_have_goal){
+#if DEBUG_PLANNER_STEP
+        cerr << "   Goal [m]: " << _goal_w.transpose() << endl;
+        cerr << "   Goal [pixel]: " << _goal.transpose() << endl;
+
         std::chrono::steady_clock::time_point time_path_start = std::chrono::steady_clock::now();
+
+#endif
+
+
         _path_calculator.setMaxCost(_max_cost-1);
         _path_calculator.setCostMap(_cost_image);
         _path_calculator.setOutputPathMap(_path_map);
         Vector2iVector goals;
         goals.push_back(_goal);
         _path_calculator.goals() = goals;
+
+#if DEBUG_PLANNER_STEP
+        cerr << "   Computing path ... " << endl;
+#endif
         _path_calculator.compute();
+
+
+#if DEBUG_PLANNER_STEP
+
         std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
+        
+        std::cerr << "   PathCalculator: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl; 
+#endif
 
-
-        //cerr << "Goal [m]: " << _goal_w.transpose() << endl;
-        //cerr << "Goal [pixel]: " << _goal.transpose() << endl;
-
-
-        /*
-        std::cerr << "PathCalculator: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl; */
 
         _path.clear();
         // Filling path
@@ -517,7 +566,10 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
           current = current->parent;
         }
 
-        // cerr << "Path size: " << _path.size() << endl;
+#if DEBUG_PLANNER_STEP
+        cerr << "   Path size: " << _path.size() << endl;
+#endif
+
         publishPath();
 
         _linear_vel=0; _angular_vel=0;
@@ -525,7 +577,9 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
         if (_move_enabled){
 
           //apply vels
-          // std::cerr << "Applying vels: " << _linear_vel  << " " << _angular_vel << std::endl;
+#if DEBUG_PLANNER_STEP
+          std::cerr << "   Applying vels: " << _linear_vel  << " " << _angular_vel << std::endl;
+#endif
 
         }else{
           _prev_v = 0;
@@ -537,15 +591,26 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
       } // _have_goal //else nothing to compute
 
 
+#if DEBUG_PLANNER_STEP
+      std::cerr << "-GUI display " << std::endl;
+#endif
 
       handleGUIDisplay();
+
+#if DEBUG_PLANNER_STEP
+      std::cerr << "-GUI input " << std::endl;
+#endif
 
       handleGUIInput();
 
 
       std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
       int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
-      // std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
+
+#if DEBUG_PLANNER_STEP
+      std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
+#endif
+
 //      if (cycle_ms < _cycle_time_ms)
 //        usleep((_cycle_time_ms-cycle_ms)*1e3);
 

@@ -5,9 +5,9 @@
 #include "dynamic_map.h"
 
 #include <libgen.h> 
-
 #include <thread>
 #include <atomic>
+#include <boost/thread/mutex.hpp>
 
 #include "srrg_path_map/path_map_utils.h"
 #include "srrg_path_map/distance_map_path_search.h"
@@ -51,11 +51,15 @@ namespace spqrel_navigation {
     void initGUI();
 
     inline void setRobotPose(Eigen::Vector3f robot_pose) {
+        _mtx_display.lock();
         _robot_pose=robot_pose;
+        _mtx_display.unlock();
     }
 
     inline void setLaserPoints(Vector2fVector laser_points) {
+        _mtx_display.lock();
         _laser_points = laser_points;
+        _mtx_display.unlock();
     }
  
     void setGoal(Eigen::Vector3f vgoal);
@@ -140,6 +144,7 @@ namespace spqrel_navigation {
     //! GUI stuff
     bool _use_gui;
     WhatToShow _what_to_show;
+    boost::mutex _mtx_display;
     static void onMouse( int event, int x, int y, int, void* v);
     void handleGUIInput();
     void handleGUIDisplay();

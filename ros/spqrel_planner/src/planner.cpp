@@ -1,6 +1,11 @@
 #include "planner.h"
 
 
+#define DEBUG_GUI_DISPLAY 0
+#define DEBUG_PLANNER_STEP 0
+#define DEBUG_GOAL 0
+
+
 namespace spqrel_navigation {
 
 using namespace std;
@@ -136,7 +141,7 @@ cout << " ... after cv::imshow ..." << endl;
 
   }
 
-#define DEBUG_GUI_DISPLAY 0
+
 
   void Planner::handleGUIDisplay() {
 
@@ -324,6 +329,12 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
 
 
     _have_goal = true;
+
+#if DEBUG_GOAL
+    std::cerr << "HAVE GOAL: " << _have_goal << std::endl;
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << std::endl;
+#endif
+
   }
 
 
@@ -415,19 +426,29 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
   
 
   void Planner::cancelGoal() {
+#if DEBUG_GOAL
+    cerr << "Planner: cancel goal " << endl;
+#endif
     _have_goal = false;
+#if DEBUG_GOAL
+    cerr << "Planner: have goal " << _have_goal << endl;
+#endif
+
     // stop the robot
     //_motion_service.call<void>("stopMove");
     //setExternalCollisionProtectionEnabled(true);
   }
 
-#define DEBUG_PLANNER_STEP 0
+
 
   void Planner::plannerStep() {
 
     _linear_vel = 0.0;
     _angular_vel = 0.0;
 
+#if DEBUG_PLANNER_STEP
+    cerr << "plannerStep: have_goal: " << _have_goal << endl;
+#endif
       if (!_have_goal && !_use_gui)
           return;
 

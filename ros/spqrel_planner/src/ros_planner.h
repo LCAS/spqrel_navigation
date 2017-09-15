@@ -174,6 +174,7 @@ protected:
     bool _force_redisplay;   //! if toggled to one forces the display and sends out all messages
     bool _set_goal;          //! set_goal mode (to be toggled with "s")
     //bool _have_goal;         //! the robot has a target goal: use _planner.haveGoal()
+    boost::mutex _mtx_goal;
     //bool _have_wait;
     bool _have_map;          //! a map has been retrieved
     int _wait;

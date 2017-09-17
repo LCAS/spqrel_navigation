@@ -90,7 +90,6 @@ protected:
     std::string _global_path_topic;
     std::string _nearest_object_topic;
 
-    std::string _action_result;
 
     std::vector<double> _timers; //< holds the update time of the last n cycles
     size_t _last_timer_slot; // the current update cycle

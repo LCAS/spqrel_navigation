@@ -70,6 +70,7 @@ namespace spqrel_navigation {
     void plannerStep();
 
     float _linear_vel, _angular_vel;
+    std::string _result;
 
   protected:
 
@@ -140,6 +141,7 @@ namespace spqrel_navigation {
 
     void publishPath();
     void publishGoalReached();
+    void publishGoalFailed();
 
     //! GUI stuff
     bool _use_gui;

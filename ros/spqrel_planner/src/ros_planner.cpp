@@ -163,7 +163,6 @@ ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
     _wait=0;
     prev_tv=0;
     prev_rv=0;
-    _action_result="";
     _have_map = false;
 
     _as.registerPreemptCallback(boost::bind(&ROSPlanner::preemptCB, this) );
@@ -333,26 +332,29 @@ void ROSPlanner::executeCB(const move_base_msgs::MoveBaseGoalConstPtr& move_base
     geometry_msgs::PoseStamped ps = move_base_goal->target_pose;
 
     geometry_msgs::PoseStampedConstPtr  ps_ptr (new geometry_msgs::PoseStamped(ps));
-    _action_result="";
+    
     setGoalCallback(ps_ptr);     
     move_base_msgs::MoveBaseFeedback feed;
     ros::Rate r(10); // 10 Hz
-    while(_action_result=="" && !_as.isPreemptRequested() && ros::ok()){
+    r.sleep();
+    while(!_as.isPreemptRequested() && _planner.haveGoal() && ros::ok()){
         r.sleep();
         _as.publishFeedback(feed);
     }
 
 
-    if(_action_result=="SUCCEEDED"){
+    string action_result = _planner._result;
+
+    if(_planner._result=="success") {
         _as.setSucceeded(move_base_msgs::MoveBaseResult(), "Goal reached.");
     } else if (_as.isPreemptRequested()) {
+        action_result = "preempted";
         _as.setAborted(move_base_msgs::MoveBaseResult(), "External preemption.");
-        _action_result = "PREEMPTED";
     } else {
-        _as.setAborted(move_base_msgs::MoveBaseResult(), "Internal event: "+_action_result);
+        _as.setAborted(move_base_msgs::MoveBaseResult(), "Internal event: "+action_result);
     }
 
-    ROS_INFO("Action finished with result: %s",_action_result.c_str());
+    ROS_INFO("Action finished with result: %s",action_result.c_str());
 
     stopRobot();
 }
@@ -462,6 +464,10 @@ void ROSPlanner::rangesToEndpoints(Vector2fVector& endpoints,
 
 
 void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
+
+#if DEBUG_MAP_MESSAGE
+    cerr << "laserCallback..." << endl;
+#endif
 
     if (!_have_map) return;
 
@@ -606,7 +612,7 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
     if (_have_map && _planner.haveGoal()) { 
         _mtx_goal.unlock();
 #if DEBUG_MAP_MESSAGE
-        cerr << "--- mutex unlock (1) - map callback" << endl;
+        cerr << "--- mutex unlock (1) - map callback --- message dropped ---" << endl;
 #endif
         return; 
     }
@@ -651,7 +657,7 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
 
     _mtx_goal.unlock();
 #if DEBUG_MAP_MESSAGE
-    cerr << "--- mutex unlock (2) - map callback " << endl;
+    cerr << "--- mutex unlock (2) - map callback !!! OK map updated !!!" << endl;
 #endif
 
 }

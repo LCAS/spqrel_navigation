@@ -22,6 +22,8 @@ namespace srrg_core {
     const int cols=_cost_map->cols;
     output.resize(rows, cols);
 
+    // std::cerr << "   dijkstra:: cost map " << rows << " " << cols << std::endl;
+
     for (size_t r=0; r<rows; ++r){
       PathMapCell* cell_ptr=output.rowPtr(r);
       const float* cost_ptr=_cost_map->ptr<const float>(r);
@@ -33,6 +35,8 @@ namespace srrg_core {
         cell_ptr->cost=*cost_ptr;
       }
     }
+
+    // std::cerr << "   dijkstra:: goals " << _goals.size() << std::endl;
 
     // prepare the frontier for expansion
     PathMapCellQueue q;//(rows*cols);
@@ -82,6 +86,10 @@ namespace srrg_core {
         max_q_size = q.size();
     } // while
 
+    // std::cerr << "   dijkstra:: num operations " << _num_operations << std::endl;
+    // std::cerr << "   dijkstra:: max q size " << max_q_size << std::endl;
+
+    return true;
   }
 
 }

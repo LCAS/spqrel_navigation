@@ -800,11 +800,11 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
       //std::cerr << "Angle to goal: " << angle_goal << std::endl;
     }
 
-    float force = 2.5;
+    float force = 5.0;
     Eigen::Vector2f F(force*cos(angle_goal), force*sin(angle_goal));
 
     //Constants definition
-    float f = 2.0;
+    float f = 3.0;
     float b = 1.975;
     float k_i = 0.95;
     float h = 2.05;

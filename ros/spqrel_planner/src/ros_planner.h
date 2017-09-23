@@ -175,7 +175,8 @@ protected:
     //bool _have_goal;         //! the robot has a target goal: use _planner.haveGoal()
     boost::mutex _mtx_goal;
     //bool _have_wait;
-    bool _have_map;          //! a map has been retrieved
+    bool _have_map;           //! a map has been retrieved
+    bool _new_map_available;  //! a new map is available
     int _wait;
     void executePath();
 

@@ -164,6 +164,7 @@ ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
     prev_tv=0;
     prev_rv=0;
     _have_map = false;
+    _new_map_available = false;
 
     _as.registerPreemptCallback(boost::bind(&ROSPlanner::preemptCB, this) );
     _as.start();
@@ -471,6 +472,11 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
     if (!_have_map) return;
 
+    if (!_planner.haveGoal() && _new_map_available) {
+        requestMap();
+    }
+
+
     _last_observation_time = msg->header.stamp;
 
     std::string error;
@@ -610,12 +616,14 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
     _mtx_goal.lock();
 
     if (_have_map && _planner.haveGoal()) { 
+        _new_map_available = true;
         _mtx_goal.unlock();
 #if DEBUG_MAP_MESSAGE
         cerr << "--- mutex unlock (1) - map callback --- message dropped ---" << endl;
 #endif
         return; 
     }
+
 
     //ROS_INFO("Map info: WIDTH: %d, HEIGHT: %d, RESOLUTION: %f",
     //            msg.info.width,msg.info.height,msg.info.resolution);
@@ -654,6 +662,7 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
     _planner.setMapFromImage(map_image,msg.info.resolution,map_origin, 0.65, 0.05);
     _planner.reset();
     _have_map = true;
+    _new_map_available = false;
 
     _mtx_goal.unlock();
 #if DEBUG_MAP_MESSAGE

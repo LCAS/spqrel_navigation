@@ -5,9 +5,9 @@
 #include "dynamic_map.h"
 
 #include <libgen.h> 
-
 #include <thread>
 #include <atomic>
+#include <boost/thread/mutex.hpp>
 
 #include "srrg_path_map/path_map_utils.h"
 #include "srrg_path_map/distance_map_path_search.h"
@@ -51,19 +51,26 @@ namespace spqrel_navigation {
     void initGUI();
 
     inline void setRobotPose(Eigen::Vector3f robot_pose) {
+        _mtx_display.lock();
         _robot_pose=robot_pose;
+        _mtx_display.unlock();
     }
 
     inline void setLaserPoints(Vector2fVector laser_points) {
+        _mtx_display.lock();
         _laser_points = laser_points;
+        _mtx_display.unlock();
     }
  
     void setGoal(Eigen::Vector3f vgoal);
     void cancelGoal();
+    inline bool haveGoal() { return _have_goal; }
 
+    void reset(); // reset all data structures 
     void plannerStep();
 
     float _linear_vel, _angular_vel;
+    std::string _result;
 
   protected:
 
@@ -102,7 +109,6 @@ namespace spqrel_navigation {
 
     float _usable_range;
     bool _restart;
-    void reset();
     
     bool _have_goal;
     Eigen::Vector2i _goal; // goal: image coords
@@ -135,10 +141,12 @@ namespace spqrel_navigation {
 
     void publishPath();
     void publishGoalReached();
+    void publishGoalFailed();
 
     //! GUI stuff
     bool _use_gui;
     WhatToShow _what_to_show;
+    boost::mutex _mtx_display;
     static void onMouse( int event, int x, int y, int, void* v);
     void handleGUIInput();
     void handleGUIDisplay();

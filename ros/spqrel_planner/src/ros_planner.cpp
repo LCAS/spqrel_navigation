@@ -16,7 +16,7 @@
 #endif
 
 
-
+#define DEBUG_MAP_MESSAGE 0
 
 
 /**
@@ -163,8 +163,8 @@ ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
     _wait=0;
     prev_tv=0;
     prev_rv=0;
-    _action_result="";
     _have_map = false;
+    _new_map_available = false;
 
     _as.registerPreemptCallback(boost::bind(&ROSPlanner::preemptCB, this) );
     _as.start();
@@ -333,26 +333,29 @@ void ROSPlanner::executeCB(const move_base_msgs::MoveBaseGoalConstPtr& move_base
     geometry_msgs::PoseStamped ps = move_base_goal->target_pose;
 
     geometry_msgs::PoseStampedConstPtr  ps_ptr (new geometry_msgs::PoseStamped(ps));
-    _action_result="";
-    setGoalCallback(ps_ptr);
+    
+    setGoalCallback(ps_ptr);     
     move_base_msgs::MoveBaseFeedback feed;
-    ros::Rate r(10); // 10 hz
-    while(_action_result=="" && !_as.isPreemptRequested()){
+    ros::Rate r(10); // 10 Hz
+    r.sleep();
+    while(!_as.isPreemptRequested() && _planner.haveGoal() && ros::ok()){
         r.sleep();
         _as.publishFeedback(feed);
     }
 
 
-    if(_action_result=="SUCCEEDED"){
+    string action_result = _planner._result;
+
+    if(_planner._result=="success") {
         _as.setSucceeded(move_base_msgs::MoveBaseResult(), "Goal reached.");
     } else if (_as.isPreemptRequested()) {
+        action_result = "preempted";
         _as.setAborted(move_base_msgs::MoveBaseResult(), "External preemption.");
-        _action_result = "PREEMPTED";
     } else {
-        _as.setAborted(move_base_msgs::MoveBaseResult(), "Internal event: "+_action_result);
+        _as.setAborted(move_base_msgs::MoveBaseResult(), "Internal event: "+action_result);
     }
 
-    ROS_INFO("Action finished with result: %s",_action_result.c_str());
+    ROS_INFO("Action finished with result: %s",action_result.c_str());
 
     stopRobot();
 }
@@ -373,9 +376,8 @@ void ROSPlanner::setCancelCallback(const actionlib_msgs::GoalID& msg) {
 
 void ROSPlanner::preemptCB() {
     ROS_INFO("Goal Preempted!!!");
-     _planner.cancelGoal();
+    _planner.cancelGoal();
     stopRobot();
-
 }
 
 void ROSPlanner::init() {
@@ -396,6 +398,37 @@ void ROSPlanner::quit() {
     //unsubscribeCallbacks(_laser_topic);
     _planner.unsubscribeServices();
 }
+
+
+void ROSPlanner::subscribeCallbacks(const std::string& laser_topic){
+     std::cerr << "ROSPlanner subscribers to: " << _laser_topic << " " <<
+        _map_topic << " " << "move_base_simple/goal" << " " << "move_base/cancel" <<
+        std::endl;
+
+    _laser_topic=laser_topic;
+    _laser_sub=_nh.subscribe(_laser_topic, 1, &ROSPlanner::laserCallback, this);
+    _goal_simple_sub = _nh.subscribe("move_base_simple/goal", 2, &ROSPlanner::setGoalCallback, this);
+    _cancel_sub = _nh.subscribe("move_base/cancel", 2, &ROSPlanner::setCancelCallback, this);
+    _map_sub = _nh.subscribe(_map_topic, 1, &ROSPlanner::mapMessageCallback, this);
+
+     std::cerr << "ROSPlanner publishers: " << _command_vel_topic << " " <<
+        _nearest_object_topic << " " << _temp_topic << " " << _path_topic <<
+        std::endl;
+
+
+    _cmd_vel_pub = _nh.advertise<geometry_msgs::Twist>(_command_vel_topic, 1);
+    _nearest_pub = _nh.advertise<std_msgs::Float32>(_nearest_object_topic,-1);
+    _temp_pub = _nh.advertise<nav_msgs::OccupancyGrid>(_temp_topic, 1);
+    _path_pub= _nh.advertise<nav_msgs::Path>(_path_topic,1);
+
+    //if(_compute_global_path)
+    //    _global_path_pub= _nh.advertise<nav_msgs::Path>(_global_path_topic,1);
+
+    //_function = boost::bind(&spqrel_navigation::ROSPlanner::dynamicReconfigureCallback, this , _1, _2);
+    //_server.setCallback(_function);
+}
+
+
 
 void ROSPlanner::rangesToEndpoints(Vector2fVector& endpoints,
                                    const Eigen::Vector3f& laser_pose,
@@ -433,7 +466,16 @@ void ROSPlanner::rangesToEndpoints(Vector2fVector& endpoints,
 
 void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
+#if DEBUG_MAP_MESSAGE
+    cerr << "laserCallback..." << endl;
+#endif
+
     if (!_have_map) return;
+
+    if (!_planner.haveGoal() && _new_map_available) {
+        requestMap();
+    }
+
 
     _last_observation_time = msg->header.stamp;
 
@@ -490,6 +532,7 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
     _planner.setRobotPose(robot_pose);
 
+
     Vector2fVector endpoints(msg->ranges.size());
     rangesToEndpoints(endpoints, laser_pose, msg);
     
@@ -498,8 +541,19 @@ void ROSPlanner::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
     _planner.setLaserPoints(endpoints);
 
+
+#if DEBUG_MAP_MESSAGE
+    cerr << "laserCallback: before plannerStep" << endl;
+    cerr << "+++ mutex lock - laserCallback/plannerStep" << endl;
+#endif
+    _mtx_goal.lock();
+
     _planner.plannerStep();
 
+    _mtx_goal.unlock();
+#if DEBUG_MAP_MESSAGE
+    cerr << "--- mutex unlock - laserCallback/plannerStep" << endl;
+#endif
 
     geometry_msgs::Twist req_twist;
     req_twist.linear.x = _planner._linear_vel;
@@ -529,33 +583,6 @@ void ROSPlanner::dynamicReconfigureCallback(thin_navigation::ThinNavigationConfi
 }
 #endif
 
-void ROSPlanner::subscribeCallbacks(const std::string& laser_topic){
-     std::cerr << "ROSPlanner subscribers to: " << _laser_topic << " " <<
-        _map_topic << " " << "move_base_simple/goal" << " " << "move_base/cancel" <<
-        std::endl;
-
-    _laser_topic=laser_topic;
-    _laser_sub=_nh.subscribe(_laser_topic, 1, &ROSPlanner::laserCallback, this);
-    _goal_simple_sub = _nh.subscribe("move_base_simple/goal", 2, &ROSPlanner::setGoalCallback, this);
-    _cancel_sub = _nh.subscribe("move_base/cancel", 2, &ROSPlanner::setCancelCallback, this);
-    _map_sub = _nh.subscribe(_map_topic, 1, &ROSPlanner::mapMessageCallback, this);
-
-     std::cerr << "ROSPlanner publishers: " << _command_vel_topic << " " <<
-        _nearest_object_topic << " " << _temp_topic << " " << _path_topic <<
-        std::endl;
-
-
-    _cmd_vel_pub = _nh.advertise<geometry_msgs::Twist>(_command_vel_topic, 1);
-    _nearest_pub = _nh.advertise<std_msgs::Float32>(_nearest_object_topic,-1);
-    _temp_pub = _nh.advertise<nav_msgs::OccupancyGrid>(_temp_topic, 1);
-    _path_pub= _nh.advertise<nav_msgs::Path>(_path_topic,1);
-
-    //if(_compute_global_path)
-    //    _global_path_pub= _nh.advertise<nav_msgs::Path>(_global_path_topic,1);
-
-    //_function = boost::bind(&spqrel_navigation::ROSPlanner::dynamicReconfigureCallback, this , _1, _2);
-    //_server.setCallback(_function);
-}
 
 
 void ROSPlanner::requestMap() {
@@ -582,8 +609,24 @@ void ROSPlanner::requestMap() {
 
 void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
 
-    ROS_INFO("Map info: WIDTH: %d, HEIGHT: %d, RESOLUTION: %f",
-                msg.info.width,msg.info.height,msg.info.resolution);
+#if DEBUG_MAP_MESSAGE
+    cerr << "map message callback" << endl;
+    cerr << "+++ mutex lock - map callback" << endl;
+#endif
+    _mtx_goal.lock();
+
+    if (_have_map && _planner.haveGoal()) { 
+        _new_map_available = true;
+        _mtx_goal.unlock();
+#if DEBUG_MAP_MESSAGE
+        cerr << "--- mutex unlock (1) - map callback --- message dropped ---" << endl;
+#endif
+        return; 
+    }
+
+
+    //ROS_INFO("Map info: WIDTH: %d, HEIGHT: %d, RESOLUTION: %f",
+    //            msg.info.width,msg.info.height,msg.info.resolution);
 
     UnsignedCharImage map_image(msg.info.width, msg.info.height);  // cols, rows
     int k=0;
@@ -614,20 +657,16 @@ void ROSPlanner::mapMessageCallback(const::nav_msgs::OccupancyGrid& msg) {
     Eigen::Vector3f map_origin(pose.getOrigin().x(),
                                pose.getOrigin().y(),
                                getYaw(pose));
-    cerr << "map origin: " << map_origin.transpose() << endl;
+    // cerr << "map origin: " << map_origin.transpose() << endl;
 
     _planner.setMapFromImage(map_image,msg.info.resolution,map_origin, 0.65, 0.05);
+    _planner.reset();
     _have_map = true;
+    _new_map_available = false;
 
-#if 0
-    // setMap(map_image, msg.info.resolution, 10, 230);
-
-   
-
-    // LI do not use this, since it does not work with multi-robot
-    //    _global_frame_id=msg.header.frame_id;
-
-    init();
+    _mtx_goal.unlock();
+#if DEBUG_MAP_MESSAGE
+    cerr << "--- mutex unlock (2) - map callback !!! OK map updated !!!" << endl;
 #endif
 
 }
@@ -661,6 +700,12 @@ void ROSPlanner::initEmptyMap() {
 
 void ROSPlanner::setGoalCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
 
+#if DEBUG_MAP_MESSAGE
+    cerr << "set goal callback" << endl;
+    cerr << "+++ mutex lock - set goal" << endl;
+#endif
+    _mtx_goal.lock();
+
     tf::Pose pose;
     tf::poseMsgToTF(msg->pose, pose);
     Eigen::Vector3f new_pose(pose.getOrigin().x(),
@@ -678,6 +723,12 @@ void ROSPlanner::setGoalCallback(const geometry_msgs::PoseStampedConstPtr& msg) 
 
     _planner.setGoal(map_pose);
 
+
+    _mtx_goal.unlock();
+#if DEBUG_MAP_MESSAGE
+    cerr << "--- mutex unlock - set goal" << endl;
+    cerr << "Setting goal terminated." << endl;
+#endif
 }
 
 
@@ -724,6 +775,11 @@ Eigen::Vector3d compute_omega(Eigen::Matrix3d T, double gamma, double kappa, dou
 
     return Eigen::Vector3d(w,r,v);
 }
+
+
+
+
+// OLD STUFF
 
 
 void ROSPlanner::executePath(){

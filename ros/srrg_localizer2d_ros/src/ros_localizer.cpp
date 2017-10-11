@@ -169,7 +169,7 @@ namespace srrg_localizer2d_ros{
     handleGUIInput();
     std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
     int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
-    std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
+    // std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
   }
 
   void ROSLocalizer::handleGUIInput(){

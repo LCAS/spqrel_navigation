@@ -87,6 +87,9 @@ else(qibuild_DIR)
     ./src/srrg_path_map/dijkstra_path_search.cpp
     ./src/srrg_path_map/path_map.cpp
     ./ros/srrg_ros_wrappers/ros_utils.cpp
+    ./src/srrg_planner2d/motion_controller.cpp
+    ./src/srrg_planner2d/dynamic_map.cpp
+    ./src/srrg_planner2d/planner.cpp
   )
 
   add_dependencies(srrg_ros 

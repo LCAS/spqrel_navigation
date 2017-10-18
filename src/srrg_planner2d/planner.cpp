@@ -28,7 +28,7 @@ namespace srrg_planner {
   void Planner::cancelGoal() {
     _have_goal = false;
 
-    //stopRobot();
+    stopRobot();
   }
 
   
@@ -368,10 +368,20 @@ namespace srrg_planner {
     computePath(_cost_image, _path_map, _goal_pixel, _obstacle_path);
 
     _path = _obstacle_path;
+
+
+    if (!_path.size()){
+      _velocities = Eigen::Vector2f::Zero();
+      _motion_controller.resetVelocities();
+    } else {
+      bool goal_reached = computeControlToWaypoint();
+      
+      if (goal_reached)
+	cancelGoal();
+      else
+	applyVelocities();
+    }
     
-    computeControlToWaypoint();
-
-
     handleGUIDisplay();
     handleGUIInput();
   
@@ -404,14 +414,8 @@ namespace srrg_planner {
   }
 
 
-  void Planner::computeControlToWaypoint(){
-  
-    if (!_path.size()){
-      _velocities = Eigen::Vector2f::Zero();
-      _motion_controller.resetVelocities();
-      return;
-    }
-
+  bool Planner::computeControlToWaypoint(){
+    
     // Next waypoint naive computation.
     float nextwp_distance = 1.0; //meters
     int num_cells = nextwp_distance * _map_inverse_resolution;
@@ -434,7 +438,8 @@ namespace srrg_planner {
       goal_reached = _motion_controller.computeVelocities(_robot_pose_image, nextwp_image_xy, _velocities);
     }
   
-  
+    return goal_reached;
+    
   }
 
 }

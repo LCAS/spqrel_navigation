@@ -420,7 +420,7 @@ namespace naoqi_planner {
 	if (_laser_points.size()>0) {
 	  
 	  _dyn_map.setMapResolution(_map_resolution);
-	  _dyn_map.setRobotPose(robot_pose_transform);
+	  _dyn_map.setRobotPose(_robot_pose);
 	  _dyn_map.setCurrentPoints(_laser_points);
 	  _dyn_map.compute();
 	  Vector2iVector obstacle_points;

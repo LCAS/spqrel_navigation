@@ -525,7 +525,7 @@ void Planner::setGoal(Eigen::Vector3f vgoal) {
       if (_laser_points.size()>0) {
 
           _dyn_map.setMapResolution(_map_resolution);
-          _dyn_map.setRobotPose(robot_pose_transform);
+          _dyn_map.setRobotPose(_robot_pose_image_m);
           _dyn_map.setCurrentPoints(_laser_points);
           _dyn_map.compute();
           Vector2iVector obstacle_points;

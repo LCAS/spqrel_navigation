@@ -1,12 +1,12 @@
 qi_create_lib(naoqi_planner_library
   SHARED
   naoqi_planner.cpp 
-  dynamic_map.cpp 
 )
 
 qi_use_lib(naoqi_planner_library
   srrg_system_utils_yaml
   srrg_path_map_library
+  srrg_planner2d_library
   naoqi_sensor_utils_library
   ALCOMMON 
   ALPROXIES

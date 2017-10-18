@@ -2,7 +2,6 @@
 
 #include "yaml_parser/simple_yaml_parser.h"
 #include "naoqi_sensor_utils/naoqi_sensor_utils.h"
-#include "dynamic_map.h"
 
 #include <libgen.h> 
 
@@ -13,6 +12,9 @@
 #include "srrg_path_map/path_map_utils.h"
 #include "srrg_path_map/distance_map_path_search.h"
 #include "srrg_path_map/dijkstra_path_search.h"
+
+#include "srrg_planner2d/dynamic_map.h"
+
 
 /**
  Summary NAOqiPlanner Keys:
@@ -26,7 +28,8 @@
  **/
 namespace naoqi_planner {
   using namespace srrg_core;
-
+  using namespace srrg_planner;
+  
   enum WhatToShow {Map, Distance, Cost};
   enum State {WaitingForGoal, GoalReceived, PathFound, PathNotFound, GoalReached};
 

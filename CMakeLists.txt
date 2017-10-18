@@ -114,7 +114,6 @@ else(qibuild_DIR)
     ros/spqrel_planner/src/planner.cpp
     ros/spqrel_planner/src/ros_planner.cpp
     ros/spqrel_planner/src/ros_planner_node.cpp
-    ros/spqrel_planner/src/dynamic_map.cpp
   )
 
 

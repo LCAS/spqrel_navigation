@@ -61,6 +61,17 @@ namespace srrg_planner {
     void cancelGoal();
     void reset();
 
+    //! Virtual functions to be implemented for the specific robot/environment (e.g., ROS, NAOqi...)
+    //! Sends a command to stop the robot.
+    virtual void stopRobot(){};
+    //! Applies a velocity command to the robot.
+    virtual void applyVelocities(){};
+    //! Subscribes to services that should fill the variables (_robot_pose, _laser_points, _goal)
+    virtual void subscribeServices(){};
+
+    //virtual void run(){};
+    
+    
   protected:
 
     inline Eigen::Vector2i world2grid(const Eigen::Vector2f p) {
@@ -129,7 +140,7 @@ namespace srrg_planner {
     //! Motion generator
     Eigen::Vector2f _velocities;
     MotionController _motion_controller;
-    void computeControlToWaypoint();
+    bool computeControlToWaypoint();
 
     bool _restart;
   };

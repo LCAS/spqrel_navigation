@@ -2,7 +2,7 @@
 
 #include "yaml_parser/simple_yaml_parser.h"
 
-#include "dynamic_map.h"
+#include "srrg_planner2d/dynamic_map.h"
 
 #include <libgen.h> 
 #include <thread>
@@ -17,7 +17,8 @@
 namespace spqrel_navigation {
 
   using namespace srrg_core;
-
+  using namespace srrg_planner;
+  
   enum WhatToShow {Map, Distance, Cost};
  
   class Planner {

@@ -80,6 +80,23 @@ qi_use_lib(srrg_localizer2d_library
 qi_stage_lib(srrg_localizer2d_library)
 
 
+#add_subdirectory(../src/srrg_planner2d)
+qi_create_lib(srrg_planner2d_library
+  ../src/srrg_planner2d/planner.cpp
+  ../src/srrg_planner2d/dynamic_map.cpp
+  ../src/srrg_planner2d/motion_controller.cpp
+)
+
+qi_use_lib(srrg_planner2d_library
+  srrg_system_utils_yaml
+  srrg_path_map_library
+  OPENCV2_CORE
+  OPENCV2_HIGHGUI
+)
+
+qi_stage_lib(srrg_planner2d_library)
+
+
 add_subdirectory(naoqi_sensor_utils)
 add_subdirectory(naoqi_localizer)
 add_subdirectory(naoqi_planner)

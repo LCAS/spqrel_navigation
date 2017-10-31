@@ -21,7 +21,8 @@ namespace srrg_planner {
 
     _laser_points.clear();
     _dyn_map.clearPoints();
-    
+
+    _state = WaitingForMap;
     _restart = true;
   }
 
@@ -306,7 +307,6 @@ namespace srrg_planner {
     
   }
 
-
   void Planner::plannerStep(){
     if (!_have_goal && !_use_gui)
       return;
@@ -442,4 +442,20 @@ namespace srrg_planner {
     
   }
 
+  void Planner::startSubscribers(){
+    std::cerr << "Starting subscribers." << std::endl;
+    
+    subscribeLaserWithPose();
+    subscribeGoal();
+    subscribeMap();
+    subscribeCancel();
+    subscribeReset();
+  }
+
+  void Planner::startPublishers(){
+    std::cerr << "Starting publishers." << std::endl;
+
+    startCmdVelPublisher();
+
+  }
 }

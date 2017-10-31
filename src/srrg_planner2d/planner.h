@@ -17,7 +17,8 @@ namespace srrg_planner {
   using namespace srrg_core;
 
   enum WhatToShow {Map, Distance, Cost};
-
+  enum State {WaitingForMap, WaitingForGoal, GoalAccepted, PathFound, PathNotFound, GoalReached};
+  
   class Planner {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
@@ -56,6 +57,8 @@ namespace srrg_planner {
     //! Computes a path given a cost_map, path_map and goal
     void computePath(FloatImage& cost_map, PathMap& path_map, Eigen::Vector2i& goal, Vector2iVector &path);
 
+    //! Velocities
+    //! TODO: seting max vels
     inline Eigen::Vector2f velocities() const {return _velocities;}
     
     void cancelGoal();
@@ -63,12 +66,22 @@ namespace srrg_planner {
 
     //! Virtual functions to be implemented for the specific robot/environment (e.g., ROS, NAOqi...)
     //! Sends a command to stop the robot.
-    virtual void stopRobot(){};
+    virtual void stopRobot() = 0;
     //! Applies a velocity command to the robot.
-    virtual void applyVelocities(){};
-    //! Subscribes to services that should fill the variables (_robot_pose, _laser_points, _goal)
-    virtual void subscribeServices(){};
-
+    virtual void applyVelocities() = 0;
+    //! Subscribes to services that should fill the variables (_robot_pose, _laser_points, _goal, _map_image)
+    virtual void startSubscribers();
+    //! Unsubscribe to services
+    virtual void stopSubscribers() = 0;    
+    
+    virtual void startPublishers();
+    virtual void startCmdVelPublisher() = 0;
+    virtual void stopPublishers() = 0;
+    virtual void publishPath() = 0;
+    virtual void publishState() = 0;
+    virtual void publishResult() = 0;
+    virtual void publishExecutionStatus() = 0;
+    
     //virtual void run(){};
     
     
@@ -135,13 +148,22 @@ namespace srrg_planner {
     //! Dynamic obstacle avoidance
     Vector2fVector _laser_points;
     DynamicMap _dyn_map;
-    
 
     //! Motion generator
     Eigen::Vector2f _velocities;
     MotionController _motion_controller;
     bool computeControlToWaypoint();
 
+    //! Subscriber functions to be implemented for the specific environment (e.g., ROS, NAOqi...) 
+    virtual void subscribeLaserWithPose() = 0;
+    virtual void subscribeGoal() = 0;
+    virtual void subscribeMap() = 0;
+    virtual void subscribeCancel() = 0;
+    virtual void subscribeReset() = 0;
+
+    
+    //! Status
+    State _state;
     bool _restart;
   };
 

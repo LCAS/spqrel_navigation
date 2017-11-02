@@ -23,8 +23,8 @@ namespace spqrel_navigation {
       _forced_max_range = 10;
       _squared_endpoint_distance = 0.1*0.1;
       
-      _base_frame_id = "/map";
-      _global_frame_id = "base_footprint_frame";
+      _base_frame_id = "base_footprint";
+      _global_frame_id = "/map";
   }
   
   void ROSPlanner::stopRobot() {
@@ -36,6 +36,7 @@ namespace spqrel_navigation {
   }
 
   void ROSPlanner::applyVelocities(){
+    std::cerr << "Applying vels: " << velocities().transpose() << std::endl;
     geometry_msgs::Twist vel;
     vel.linear.x = velocities().x();
     vel.angular.z = velocities().y();
@@ -105,7 +106,7 @@ namespace spqrel_navigation {
 
   void ROSPlanner::laserWithPoseCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
-    if (_state == WaitingForMap || _state == WaitingForGoal ) return;
+    //if (_state == WaitingForMap || _state == WaitingForGoal ) return;
     
     
     // Get laser pose on robot
@@ -137,7 +138,7 @@ namespace spqrel_navigation {
       ROS_ERROR("Robot pose transform: %s",ex.what());
     }   
     Eigen::Vector3f robot_pose = convertPose2D(robot_pose_tf);
-      
+
     // Pruning some points
     Vector2fVector laser_points;
     rangesToEndpoints(laser_points, laser_pose, msg);
@@ -168,6 +169,7 @@ namespace spqrel_navigation {
 
     //!TODO: check map changes (e.g. exploration usage)
 
+    std::cerr << "Got map: " << msg.info.height << "x" << msg.info.width << std::endl;
     UnsignedCharImage map_image(msg.info.width, msg.info.height);  // cols, rows
     int k=0;
 
@@ -214,4 +216,22 @@ namespace spqrel_navigation {
     _cmd_vel_pub = _nh.advertise<geometry_msgs::Twist>(_cmd_vel_topic, 1);
   }
 
+  void ROSPlanner::requestMap(){
+    // get map via RPC
+    nav_msgs::GetMap::Request  req;
+    nav_msgs::GetMap::Response resp;
+    ROS_INFO("Requesting the map...");
+    std::string static_map_service = "static_map";
+
+    while(ros::ok() && !ros::service::call(static_map_service, req, resp)){
+      ROS_WARN_STREAM("Request for map " << static_map_service << " failed; trying again...");
+      ros::Duration d(0.5);
+      d.sleep();
+    }
+    
+    if (!ros::ok()) 
+      ros::shutdown();
+    else
+      mapCallback(resp.map);
+  }
 }

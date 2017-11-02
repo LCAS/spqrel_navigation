@@ -4,6 +4,7 @@
 #include <tf/transform_listener.h>
 #include <sensor_msgs/LaserScan.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <nav_msgs/GetMap.h>
 #include <actionlib_msgs/GoalID.h>
 #include <std_msgs/Bool.h>
 
@@ -22,17 +23,13 @@ namespace spqrel_navigation {
 
     ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener=0);
 
-
+    void requestMap();
 
     void stopRobot();
     void applyVelocities();
 
     virtual void stopSubscribers(){};    
     virtual void stopPublishers(){};
-    virtual void publishPath(){};
-    virtual void publishState(){};
-    virtual void publishResult(){};
-    virtual void publishExecutionStatus(){};
     
   protected:
 
@@ -69,6 +66,10 @@ namespace spqrel_navigation {
     //Publishers
     ros::Publisher _cmd_vel_pub;
     void startCmdVelPublisher();
+    virtual void publishPath(){};
+    virtual void publishState(){};
+    virtual void publishResult(){};
+    virtual void publishExecutionStatus(){};
 
     //Frames
     std::string _base_frame_id;

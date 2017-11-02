@@ -44,8 +44,10 @@ namespace srrg_planner {
 			 const Eigen::Vector3f& map_origin, const float occ_threshold, const float free_threshold);
     
     //! GUI
+    inline void useGUI(bool use_gui){_use_gui = use_gui;}
     void initGUI();
-
+    void handleGUI();
+      
     void setGoal(const Eigen::Vector3f& goal);
     void setRobotPose(const Eigen::Vector3f& robot_pose);
     void setLaserPoints(const Vector2fVector& laser_points);
@@ -75,14 +77,10 @@ namespace srrg_planner {
     virtual void stopSubscribers() = 0;    
     
     virtual void startPublishers();
-    virtual void startCmdVelPublisher() = 0;
     virtual void stopPublishers() = 0;
-    virtual void publishPath() = 0;
-    virtual void publishState() = 0;
-    virtual void publishResult() = 0;
-    virtual void publishExecutionStatus() = 0;
-    
-    //virtual void run(){};
+
+    virtual void init();
+    virtual void run();
     
     
   protected:
@@ -136,6 +134,7 @@ namespace srrg_planner {
     //! Goal managing
     void setGoalGUI(Eigen::Vector2i goal);
     bool _have_goal;
+    bool _have_goal_with_angle;
     Eigen::Vector3f _goal; //map coordinates wrt _map_origin
     Eigen::Vector3f _goal_image; //image coordinates [m]
     Eigen::Vector2i _goal_pixel; //pixel coordinates
@@ -154,12 +153,19 @@ namespace srrg_planner {
     MotionController _motion_controller;
     bool computeControlToWaypoint();
 
-    //! Subscriber functions to be implemented for the specific environment (e.g., ROS, NAOqi...) 
+    //! Virtual functions to be implemented for the specific environment (e.g., ROS, NAOqi...) 
+    //! Subscribers
     virtual void subscribeLaserWithPose() = 0;
     virtual void subscribeGoal() = 0;
     virtual void subscribeMap() = 0;
     virtual void subscribeCancel() = 0;
     virtual void subscribeReset() = 0;
+    //! Publishers
+    virtual void startCmdVelPublisher() = 0;
+    virtual void publishPath() = 0;
+    virtual void publishState() = 0;
+    virtual void publishResult() = 0;
+    virtual void publishExecutionStatus() = 0;
 
     
     //! Status

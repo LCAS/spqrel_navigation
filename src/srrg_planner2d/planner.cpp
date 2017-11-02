@@ -11,6 +11,7 @@ namespace srrg_planner {
     _what_to_show = Map;
 
     _have_goal = false;
+    _have_goal_with_angle = false;
     _goal = Eigen::Vector3f(0,0,0);
     _goal_image = Eigen::Vector3f(0,0,0);
     _goal_pixel = Eigen::Vector2i(0,0);
@@ -58,17 +59,10 @@ namespace srrg_planner {
     float free_threshold = parser.getValueAsFloat("free_thresh");
     Eigen::Vector3f map_origin = parser.getValueAsVector3f("origin");
     
-    std::cerr << "MAP NAME: " << map_image_name << std::endl;
-    std::cerr << "RESOLUTION: " << map_resolution << std::endl;
-    std::cerr << "ORIGIN: " << map_origin.transpose() << std::endl;
-    std::cerr << "OCC THRESHOLD: " << occ_threshold << std::endl;
-    std::cerr << "FREE THRESHOLD: " << free_threshold << std::endl;
-
     std::string full_path_map_image = std::string(dirname(strdup(mapname.c_str())))+"/"+map_image_name;
     std::cerr << "Opening image" << full_path_map_image << std::endl;
   
     UnsignedCharImage map_image = cv::imread(full_path_map_image, CV_LOAD_IMAGE_GRAYSCALE);
-    std::cerr << "Image read: (" << map_image.rows << "x" << map_image.cols << ")" << std::endl;
 
     setMapFromImage(map_image, map_resolution, map_origin, occ_threshold, free_threshold);
   }
@@ -101,6 +95,13 @@ namespace srrg_planner {
     int free_thr = (1.0 - _free_threshold) * 255;
     grayMap2indices(_indices_image, _map_image, occ_thr, free_thr);
 
+    std::cerr << "Setting map: \n"
+	      << "  Size: " << map_image.rows << "x" << map_image.cols << std::endl
+	      << "  Resolution: " << _map_resolution << std::endl
+	      << "  Occ threshold: " << _occ_threshold << std::endl
+	      << "  Free threshold: " << _free_threshold << std::endl
+	      << "  Map origin: " << _map_origin.transpose() << std::endl;
+      
     _mtx_display.unlock();
 
   }
@@ -124,7 +125,10 @@ namespace srrg_planner {
 
   void Planner::setGoalGUI(Eigen::Vector2i goal){
     _goal_pixel = goal;
+    Eigen::Vector2f goal_image_xy = grid2world(goal);
+    _goal_image = Eigen::Vector3f(goal_image_xy.x(), goal_image_xy.y(), 0);
     _have_goal = true;
+    _have_goal_with_angle = false;
     std::cerr << "Setting goal: " << _goal_pixel.transpose() << std::endl;
   }
 
@@ -133,6 +137,7 @@ namespace srrg_planner {
 
     _mtx_display.lock();
     _have_goal = true;
+    _have_goal_with_angle = true;
 
     _goal = goal;
 
@@ -151,7 +156,6 @@ namespace srrg_planner {
   
     Eigen::Isometry2f robot_pose_transform = _image_map_origin_transform_inverse*v2t(robot_pose);
     _robot_pose_image = t2v(robot_pose_transform);
-  
     _robot_pose_pixel = world2grid(Eigen::Vector2f(_robot_pose_image.x(), _robot_pose_image.y()));
   
     _mtx_display.unlock();
@@ -165,10 +169,12 @@ namespace srrg_planner {
     _mtx_display.unlock();
   }
 
+  void Planner::handleGUI(){
+    handleGUIInput();
+    handleGUIDisplay();
+  }
+  
   void Planner::handleGUIInput(){
-    if (! _use_gui)
-      return;
-
     char key=cv::waitKey(25);
     switch(key) {
     case 'h':
@@ -214,101 +220,113 @@ namespace srrg_planner {
   }
 
   void Planner::handleGUIDisplay() {
-    if (_use_gui) {
-      _mtx_display.lock();
+    _mtx_display.lock();
 
-      FloatImage shown_image;
-      switch(_what_to_show){
-      case Map:
-	shown_image.create(_indices_image.rows, _indices_image.cols);
-	for (int r=0; r<_indices_image.rows; ++r) {
-	  int* src_ptr=_indices_image.ptr<int>(r);
-	  float* dest_ptr=shown_image.ptr<float>(r);
-	  for (int c=0; c<_indices_image.cols; ++c, ++src_ptr, ++dest_ptr){
-	    if (*src_ptr<-1)
-	      *dest_ptr = .5f;
-	    else if (*src_ptr == -1)
-	      *dest_ptr = 1.f;
-	    else
-	      *dest_ptr=0.f;
-	  }
+    FloatImage shown_image;
+    switch(_what_to_show){
+    case Map:
+      shown_image.create(_indices_image.rows, _indices_image.cols);
+      for (int r=0; r<_indices_image.rows; ++r) {
+	int* src_ptr=_indices_image.ptr<int>(r);
+	float* dest_ptr=shown_image.ptr<float>(r);
+	for (int c=0; c<_indices_image.cols; ++c, ++src_ptr, ++dest_ptr){
+	  if (*src_ptr<-1)
+	    *dest_ptr = .5f;
+	  else if (*src_ptr == -1)
+	    *dest_ptr = 1.f;
+	  else
+	    *dest_ptr=0.f;
 	}
-	break;
+      }
+      break;
 	
-      case Distance:
-	shown_image=_distance_image*(1./_safety_region);
-	break;
-      case Cost:
-	shown_image=_cost_image*(1.f/_max_cost);
-	break;
-      }
+    case Distance:
+      shown_image=_distance_image*(1./_safety_region);
+      break;
+    case Cost:
+      shown_image=_cost_image*(1.f/_max_cost);
+      break;
+    }
       
-      // Drawing goal
-      if (_have_goal)
-	cv::circle(shown_image, cv::Point(_goal.y(), _goal.x()), 3, cv::Scalar(0.0f));
+    int robot_radius_pixel = _robot_radius*_map_inverse_resolution;
+    // Drawing goal
+    if (_have_goal){
+      cv::circle(shown_image, cv::Point(_goal_pixel.y(), _goal_pixel.x()), robot_radius_pixel, cv::Scalar(0.0f));
+      if (_have_goal_with_angle){
+	Eigen::Vector2i goal_angle_pixel(cos(_goal_image.z())*robot_radius_pixel, sin(_goal_image.z())*robot_radius_pixel);
+	cv::line(shown_image,
+		 cv::Point(_goal_pixel.y(), _goal_pixel.x()),
+		 cv::Point(_goal_pixel.y()+goal_angle_pixel.y(), _goal_pixel.x()+goal_angle_pixel.x()),
+		 cv::Scalar(0.0f));
+      }
+    }
 
-      // Drawing current pose
-      cv::rectangle(shown_image,
-		    cv::Point(_robot_pose_image.y()+2, _robot_pose_image.x()-2),
-		    cv::Point(_robot_pose_image.y()-2, _robot_pose_image.x()+2),
-		    cv::Scalar(0.0f));
-
-      /*
-      //Draw path
-      if (_have_goal && _path.size()>1){
+    // Drawing current pose
+    cv::rectangle(shown_image,
+		  cv::Point(_robot_pose_pixel.y()+robot_radius_pixel, _robot_pose_pixel.x()-robot_radius_pixel),
+		  cv::Point(_robot_pose_pixel.y()-robot_radius_pixel, _robot_pose_pixel.x()+robot_radius_pixel),
+		  cv::Scalar(0.0f));
+    Eigen::Vector2i robot_pose_angle_pixel(cos(_robot_pose_image.z())*robot_radius_pixel, sin(_robot_pose_image.z())*robot_radius_pixel);
+    cv::line(shown_image,
+	     cv::Point(_robot_pose_pixel.y(), _robot_pose_pixel.x()),
+	     cv::Point(_robot_pose_pixel.y()+robot_pose_angle_pixel.y(), _robot_pose_pixel.x()+robot_pose_angle_pixel.x()),
+	     cv::Scalar(0.0f));
+      
+    //Draw path
+    if (_have_goal && _path.size()>1){
       for (size_t i=0; i<_path.size()-1; i++){
-      Eigen::Vector2i cell_from = _path[i];
-      Eigen::Vector2i cell_to   = _path[i+1];
-      cv::line(shown_image,
-      cv::Point(cell_from.y(), cell_from.x()),
-      cv::Point(cell_to.y(), cell_to.x()),
-      cv::Scalar(0.0f));
+	Eigen::Vector2i cell_from = _path[i];
+	Eigen::Vector2i cell_to   = _path[i+1];
+	cv::line(shown_image,
+		 cv::Point(cell_from.y(), cell_from.x()),
+		 cv::Point(cell_to.y(), cell_to.x()),
+		 cv::Scalar(0.0f));
       }
-
-      if (_nominal_path.size()>1){
-      for (size_t i=0; i<_nominal_path.size()-1; i++){
-
-      Eigen::Vector2i cell_from = _nominal_path[i];
-      Eigen::Vector2i cell_to   = _nominal_path[i+1];
-      cv::line(shown_image,
-      cv::Point(cell_from.y(), cell_from.x()),
-      cv::Point(cell_to.y(), cell_to.x()),
-      cv::Scalar(0.5f));
-	  
-	  
-      }
-      }
-      }*/
-
-      //Draw laser
-      for (size_t i=0; i<_laser_points.size(); i++){
-	Eigen::Vector2f lp=v2t(_robot_pose)* _laser_points[i];
-	int r = lp.x()*_map_inverse_resolution;
-	int c = lp.y()*_map_inverse_resolution;
-	if (! _distance_map.inside(r,c))
-	  continue;
-	cv::circle(shown_image, cv::Point(c, r), 3, cv::Scalar(1.0f));
-      }
-
       /*
-	char buf[1024];
-	sprintf(buf, " MoveEnabled: %d", _move_enabled);
-	cv::putText(shown_image, buf, cv::Point(20, 50), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
-	sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
-	cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
-	sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
-	cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
-      */
-      
-      cv::imshow("spqrel_planner", shown_image);
+	if (_nominal_path.size()>1){
+	for (size_t i=0; i<_nominal_path.size()-1; i++){
 
-      _mtx_display.unlock();
-    }  
+	Eigen::Vector2i cell_from = _nominal_path[i];
+	Eigen::Vector2i cell_to   = _nominal_path[i+1];
+	cv::line(shown_image,
+	cv::Point(cell_from.y(), cell_from.x()),
+	cv::Point(cell_to.y(), cell_to.x()),
+	cv::Scalar(0.5f));
+	  
+	  
+	}
+	}*/
+    }
+
+    //Draw laser
+    for (size_t i=0; i<_laser_points.size(); i++){
+      Eigen::Vector2f lp=v2t(_robot_pose_image)* _laser_points[i];
+      int r = lp.x()*_map_inverse_resolution;
+      int c = lp.y()*_map_inverse_resolution;
+      if (! _distance_map.inside(r,c))
+	continue;
+      cv::circle(shown_image, cv::Point(c, r), 3, cv::Scalar(1.0f));
+    }
+
+    /*
+      char buf[1024];
+      sprintf(buf, " MoveEnabled: %d", _move_enabled);
+      cv::putText(shown_image, buf, cv::Point(20, 50), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
+      sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
+      cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
+      sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);
+      cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.06), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
+    */
+      
+    cv::imshow("spqrel_planner", shown_image);
+
+    _mtx_display.unlock();
+    
     
   }
 
   void Planner::plannerStep(){
-    if (!_have_goal && !_use_gui)
+    if (!_have_goal)
       return;
 
     std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
@@ -369,7 +387,6 @@ namespace srrg_planner {
 
     _path = _obstacle_path;
 
-
     if (!_path.size()){
       _velocities = Eigen::Vector2f::Zero();
       _motion_controller.resetVelocities();
@@ -381,10 +398,7 @@ namespace srrg_planner {
       else
 	applyVelocities();
     }
-    
-    handleGUIDisplay();
-    handleGUIInput();
-  
+
     std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
     int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
     std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
@@ -405,7 +419,7 @@ namespace srrg_planner {
     std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
     path.clear();
     // Filling path
-    PathMapCell* current=&path_map(_robot_pose_image.x(), _robot_pose_image.y());
+    PathMapCell* current=&path_map(_robot_pose_pixel.x(), _robot_pose_pixel.y());
     while (current && current->parent && current->parent!=current) {
       PathMapCell* parent=current->parent;
       path.push_back(Eigen::Vector2i(current->r, current->c));
@@ -431,9 +445,19 @@ namespace srrg_planner {
 
 
     bool goal_reached = false;
-    if (isLastWp)
-      goal_reached = _motion_controller.computeVelocities(_robot_pose_image, _goal_image, _velocities);
+    if (isLastWp){
+      if (_have_goal_with_angle){
+	// Giving (x, y, theta) to controller to arrive with the given robot orientation
+	goal_reached = _motion_controller.computeVelocities(_robot_pose_image, _goal_image, _velocities);
+      }
+      else{
+	// Giving (x, y) to controller. We do not care about the final robot orientation
+	Eigen::Vector2f goal_image_xy(_goal_image.x(), _goal_image.y());
+	goal_reached = _motion_controller.computeVelocities(_robot_pose_image, goal_image_xy, _velocities);
+      }
+    }
     else {
+      // Giving (x, y) to controller since we still have a long way till reaching the goal
       Eigen::Vector2f nextwp_image_xy = grid2world(nextwp);
       goal_reached = _motion_controller.computeVelocities(_robot_pose_image, nextwp_image_xy, _velocities);
     }
@@ -457,5 +481,24 @@ namespace srrg_planner {
 
     startCmdVelPublisher();
 
+  }
+
+  void Planner::init(){
+    std::cerr << "Starting Planner." << std::endl;
+    
+    startSubscribers();
+    startPublishers();
+
+    if (_use_gui)
+      initGUI();    
+    
+  }
+
+  void Planner::run(){
+    if (_have_goal)
+      plannerStep();
+
+    if (_use_gui)
+      handleGUI();
   }
 }

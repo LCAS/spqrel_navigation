@@ -17,16 +17,21 @@ int main(int argc, char **argv){
     //rosplanner->setMapServiceId(map_service_id);
     //cout << "ros_planner: [string] _map_service_id: " << map_service_id << endl;
 
-    // init the planner
-    //rosplanner->init();  // this function sets a subscriber to laser topic 
-                      // that is the main execution thread for the planner
+    rosplanner->useGUI(true);
 
     //requests the map
-    //rosplanner->requestMap();
+    rosplanner->requestMap();
+    
+    // init the planner
+    rosplanner->init();  // this function sets a subscriber to laser topic 
+                         // that is the main execution thread for the planner
 
-    //run baby run
-    ros::spin();
-
+    ros::Rate r(10);
+    while (ros::ok()){
+      rosplanner->run();
+      ros::spinOnce();
+      r.sleep();
+    }
     //rosplanner->quit();
 
     return 0;

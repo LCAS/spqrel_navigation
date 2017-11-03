@@ -24,6 +24,7 @@ namespace spqrel_navigation {
 
     ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener=0);
 
+    void getParams();
     void requestMap();
 
     void stopRobot();
@@ -45,7 +46,8 @@ namespace spqrel_navigation {
     std::string _reset_topic;
     std::string _cmd_vel_topic;
     std::string _path_topic;
-    
+    std::string _static_map_service;
+
     //Subscribers
     ros::Subscriber _laserwpose_sub;
     ros::Subscriber _goal_sub;

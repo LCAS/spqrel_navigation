@@ -17,7 +17,8 @@ namespace spqrel_navigation {
     _reset_topic = "reset";
     _cmd_vel_topic = "cmd_vel";
     _path_topic = "path";
-
+    _static_map_service = "static_map";
+      
     _forced_max_range = 10;
     _squared_endpoint_distance = 0.1*0.1;
       
@@ -25,6 +26,61 @@ namespace spqrel_navigation {
     _global_frame_id = "/map";
 
   }
+
+  void ROSPlanner::getParams() {
+    ros::NodeHandle private_nh("~");
+    
+    private_nh.getParam("laser_topic", _laser_topic);
+    private_nh.getParam("goal_topic", _goal_topic);
+    private_nh.getParam("map_topic", _map_topic);
+    private_nh.getParam("cancel_topic", _cancel_topic);
+    private_nh.getParam("reset_topic", _reset_topic);
+    private_nh.getParam("cmd_vel_topic", _cmd_vel_topic);
+    private_nh.getParam("path_topic", _path_topic);
+    private_nh.getParam("static_map_service", _static_map_service);
+    private_nh.getParam("base_frame_id", _base_frame_id);
+    private_nh.getParam("global_frame_id", _global_frame_id);
+
+    float robot_radius;
+    if (private_nh.getParam("robot_radius", robot_radius))
+      setRobotRadius(robot_radius);
+    
+    float max_linear_vel, max_angular_vel, max_linear_acc, max_angular_acc;
+    if (private_nh.getParam("max_linear_vel", max_linear_vel))
+      setMaxLinearVel(max_linear_vel);
+    if (private_nh.getParam("max_angular_vel", max_angular_vel))
+      setMaxAngularVel(max_angular_vel);
+    if (private_nh.getParam("max_linear_acc", max_linear_acc))
+      setMaxLinearAcc(max_linear_acc);
+    if (private_nh.getParam("max_angular_acc", max_angular_acc))
+      setMaxAngularAcc(max_angular_acc);
+    
+    float goal_translation_tolerance, goal_rotation_tolerance;
+    if (private_nh.getParam("goal_translation_tolerance", goal_translation_tolerance))
+      setGoalTranslationTolerance(goal_translation_tolerance);    
+    if (private_nh.getParam("goal_rotation_tolerance", goal_rotation_tolerance))
+      setGoalRotationTolerance(goal_rotation_tolerance);    
+    
+    std::cerr << "SPQReL ROS Planner launched with params:"      << std::endl;
+    std::cerr << "  laser_topic: "        << _laser_topic        << std::endl;
+    std::cerr << "  goal_topic: "         << _goal_topic         << std::endl;
+    std::cerr << "  map_topic: "          << _map_topic          << std::endl;
+    std::cerr << "  cancel_topic: "       << _cancel_topic       << std::endl;
+    std::cerr << "  cmd_vel_topic: "      << _cmd_vel_topic      << std::endl;
+    std::cerr << "  path_topic: "         << _path_topic         << std::endl;
+    std::cerr << "  static_map_service: " << _static_map_service << std::endl;
+    std::cerr << "  base_frame_id: "      << _base_frame_id      << std::endl;
+    std::cerr << "  global_frame_id: "    << _global_frame_id    << std::endl;
+    std::cerr << "  robot_radius: "       << robotRadius()       << std::endl;
+    std::cerr << "  max_linear_vel: "     << maxLinearVel()      << std::endl;
+    std::cerr << "  max_angular_vel: "    << maxAngularVel()     << std::endl;
+    std::cerr << "  max_linear_acc: "     << maxLinearAcc()      << std::endl;
+    std::cerr << "  max_angular_acc: "    << maxAngularAcc()     << std::endl;
+    std::cerr << "  goal_translation_tolerance: " << goalTranslationTolerance() << std::endl;
+    std::cerr << "  goal_rotation_tolerance: "    << goalRotationTolerance()    << std::endl;
+  }
+
+
   
   void ROSPlanner::stopRobot() {
     geometry_msgs::Twist vel;
@@ -257,10 +313,9 @@ namespace spqrel_navigation {
     nav_msgs::GetMap::Request  req;
     nav_msgs::GetMap::Response resp;
     ROS_INFO("Requesting the map...");
-    std::string static_map_service = "static_map";
 
-    while(ros::ok() && !ros::service::call(static_map_service, req, resp)){
-      ROS_WARN_STREAM("Request for map " << static_map_service << " failed; trying again...");
+    while(ros::ok() && !ros::service::call(_static_map_service, req, resp)){
+      ROS_WARN_STREAM("Request for map " << _static_map_service << " failed; trying again...");
       ros::Duration d(0.5);
       d.sleep();
     }

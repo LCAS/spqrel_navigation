@@ -17,6 +17,7 @@ int main(int argc, char **argv){
     //rosplanner->setMapServiceId(map_service_id);
     //cout << "ros_planner: [string] _map_service_id: " << map_service_id << endl;
 
+    rosplanner->getParams();
     rosplanner->useGUI(true);
 
     //requests the map

@@ -47,9 +47,11 @@ class MotionController {
   inline void setGoalTranslationTolerance(float goal_translation_tolerance) {
     _goal_translation_tolerance = goal_translation_tolerance;
   }
+  inline float goalTranslationTolerance() const {return _goal_translation_tolerance;}
   inline void setGoalRotationTolerance(float goal_rotation_tolerance) {
     _goal_rotation_tolerance = goal_rotation_tolerance;
   }
+  inline float goalRotationTolerance() const {return _goal_rotation_tolerance;}
   
   bool computeVelocities(const Eigen::Vector3f& robot_pose, const Eigen::Vector2f& goal_xy, Eigen::Vector2f& velocities);
   bool computeVelocities(const Eigen::Vector3f& robot_pose, const Eigen::Vector3f& goal_xytheta, Eigen::Vector2f& velocities);

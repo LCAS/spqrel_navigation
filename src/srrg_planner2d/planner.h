@@ -47,7 +47,9 @@ namespace srrg_planner {
     inline float maxAngularAcc() const {return _motion_controller.maxAngularAcc();}
     
     inline void setGoalTranslationTolerance(float goal_translation_tolerance) {_motion_controller.setGoalTranslationTolerance(goal_translation_tolerance);}
+    inline float goalTranslationTolerance() const {return _motion_controller.goalTranslationTolerance();}
     inline void setGoalRotationTolerance(float goal_rotation_tolerance) {_motion_controller.setGoalRotationTolerance(goal_rotation_tolerance);}
+    inline float goalRotationTolerance() const {return _motion_controller.goalRotationTolerance();}
   
     //! reads a map in yaml format
     void readMap(const std::string mapname);

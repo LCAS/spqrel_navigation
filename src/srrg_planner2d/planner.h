@@ -78,6 +78,7 @@ namespace srrg_planner {
     
     void cancelGoal();
     void reset();
+    void restartPathMap();
 
     //! Virtual functions to be implemented for the specific robot/environment (e.g., ROS, NAOqi...)
     //! Sends a command to stop the robot.
@@ -184,7 +185,6 @@ namespace srrg_planner {
     
     //! Status
     State _state;
-    bool _restart;
   };
 
 

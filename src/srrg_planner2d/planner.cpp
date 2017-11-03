@@ -24,7 +24,6 @@ namespace srrg_planner {
     _dyn_map.clearPoints();
 
     _state = WaitingForMap;
-    _restart = true;
   }
 
   void Planner::cancelGoal() {
@@ -32,17 +31,38 @@ namespace srrg_planner {
     _path.clear();
     stopRobot();
   }
-
   
   void Planner::reset(){
-    _restart = true;
     cancelGoal();
 
-    //Removing obstacles
+    //Restarting Path Map variables and removing obstacles
+    restartPathMap();    
+  }
+
+  void Planner::restartPathMap(){
+    _dyn_map.clearPoints();
+    
     int occ_threshold = (1.0 - _occ_threshold) * 255;
     int free_threshold = (1.0 - _free_threshold) * 255;
     grayMap2indices(_indices_image, _map_image, occ_threshold, free_threshold);
-    _dyn_map.clearPoints();
+
+
+    _dmap_calculator.setMaxDistance(_safety_region/_map_resolution);
+    _dmap_calculator.setIndicesImage(_indices_image);
+    _dmap_calculator.setOutputPathMap(_distance_map);
+    _dmap_calculator.init();
+    _max_distance_map_index = _dmap_calculator.maxIndex();
+    _dmap_calculator.compute();
+    _distance_map_backup=_distance_map.data();
+    
+    //I'm doing also backup of the cost_map without obstacles
+    _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
+    distances2cost(_cost_image_backup,
+		   _distance_image,
+		   _robot_radius,
+		   _safety_region,
+		   _min_cost,
+		   _max_cost);
   }
   
   void Planner::readMap(const std::string mapname){
@@ -91,9 +111,7 @@ namespace srrg_planner {
     _image_map_origin = t2v(tf);
     _image_map_origin_transform_inverse = v2t(_image_map_origin).inverse();;
 
-    int occ_thr = (1.0 - _occ_threshold) * 255;
-    int free_thr = (1.0 - _free_threshold) * 255;
-    grayMap2indices(_indices_image, _map_image, occ_thr, free_thr);
+    restartPathMap();
 
     std::cerr << "Setting map: \n"
 	      << "  Size: " << map_image.rows << "x" << map_image.cols << std::endl
@@ -330,28 +348,6 @@ namespace srrg_planner {
       return;
 
     std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
-
-  
-    if (_restart){
-      _dmap_calculator.setMaxDistance(_safety_region/_map_resolution);
-      _dmap_calculator.setIndicesImage(_indices_image);
-      _dmap_calculator.setOutputPathMap(_distance_map);
-      _dmap_calculator.init();
-      _max_distance_map_index = _dmap_calculator.maxIndex();
-      _dmap_calculator.compute();
-      _distance_map_backup=_distance_map.data();
-
-      //I'm doing also backup of the cost_map without obstacles
-      _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
-      distances2cost(_cost_image_backup,
-		     _distance_image,
-		     _robot_radius,
-		     _safety_region,
-		     _min_cost,
-		     _max_cost);
-
-      _restart = false;
-    }
 
     //Get nominal path without obstacles
     //computePath(_cost_image_backup, _path_map_backup, _goal_pixel, _nominal_path);

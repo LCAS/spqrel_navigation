@@ -7,24 +7,23 @@ namespace spqrel_navigation {
   ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener): _nh(nh){
     
     _listener = listener;
-      if (! _listener)
-        _listener = new tf::TransformListener;
+    if (! _listener)
+      _listener = new tf::TransformListener;
       
-      
+    _laser_topic = "base_scan";
+    _goal_topic = "move_base_simple/goal";
+    _map_topic = "map";
+    _cancel_topic = "move_base/cancel";
+    _reset_topic = "reset";
+    _cmd_vel_topic = "cmd_vel";
+    _path_topic = "path";
 
-      _laser_topic = "base_scan";
-      _goal_topic = "move_base_simple/goal";
-      _map_topic = "map";
-      _cancel_topic = "move_base/cancel";
-      _reset_topic = "reset";
-      _cmd_vel_topic = "cmd_vel";
- 
-
-      _forced_max_range = 10;
-      _squared_endpoint_distance = 0.1*0.1;
+    _forced_max_range = 10;
+    _squared_endpoint_distance = 0.1*0.1;
       
-      _base_frame_id = "base_footprint";
-      _global_frame_id = "/map";
+    _base_frame_id = "base_footprint";
+    _global_frame_id = "/map";
+
   }
   
   void ROSPlanner::stopRobot() {
@@ -214,6 +213,43 @@ namespace spqrel_navigation {
 
   void ROSPlanner::startCmdVelPublisher(){
     _cmd_vel_pub = _nh.advertise<geometry_msgs::Twist>(_cmd_vel_topic, 1);
+  }
+
+  void ROSPlanner::startPathPublisher(){
+    _path_pub = _nh.advertise<nav_msgs::Path>(_path_topic, 1);
+  }
+
+  void ROSPlanner::publishPath(){
+    nav_msgs::Path path;
+
+    //Filling header
+    path.header.stamp = ros::Time::now();
+    path.header.frame_id = _global_frame_id;
+
+    //Filling poses
+    path.poses.resize(_path.size());
+    for (size_t i = 0; i < _path.size(); i++){
+      Eigen::Vector2i point = _path[i];
+
+      Eigen::Vector2f point_image_xy = grid2world(point);
+      Eigen::Vector3f point_image(point_image_xy.x(), point_image_xy.y(), 0);
+      Eigen::Isometry2f point_world_transform = v2t(_image_map_origin) * v2t(point_image);
+      Eigen::Vector3f point_world = t2v(point_world_transform);
+      
+      geometry_msgs::PoseStamped pose;
+      pose.header.stamp = ros::Time::now();
+      pose.header.frame_id = _global_frame_id;
+      
+      pose.pose.position.x=point_world.x();
+      pose.pose.position.y=point_world.y();
+      pose.pose.orientation=tf::createQuaternionMsgFromYaw(point_world.z());
+
+      path.poses[i] = pose;
+    }
+
+
+    _path_pub.publish(path);
+
   }
 
   void ROSPlanner::requestMap(){

@@ -17,23 +17,27 @@ class MotionController {
  public:
   MotionController();
 
-  //Set velocities and accelerations
+  //Set and get velocities and accelerations
   inline void setMaxLinearVel(float max_linear_vel) {
     _max_linear_vel = max_linear_vel;
     _updateParameters();
   }
+  inline float maxLinearVel() const {return _max_linear_vel;}
   inline void setMaxAngularVel(float max_angular_vel) {
     _max_angular_vel = max_angular_vel;
     _updateParameters();
   }
+  inline float maxAngularVel() const {return _max_angular_vel;}
   inline void setMaxLinearAcc(float max_linear_acc) {
     _max_linear_acc = max_linear_acc;
     _updateParameters();
   }
+  inline float maxLinearAcc() const {return _max_linear_acc;}
   inline void setMaxAngularAcc(float max_linear_acc) {
     _max_linear_acc = max_linear_acc;
     _updateParameters();
   }
+  inline float maxAngularAcc() const {return _max_linear_acc;}
 
   inline void resetVelocities() {
     _prev_linear_vel = 0;

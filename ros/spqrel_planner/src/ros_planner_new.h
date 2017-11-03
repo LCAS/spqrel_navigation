@@ -5,6 +5,7 @@
 #include <sensor_msgs/LaserScan.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/GetMap.h>
+#include <nav_msgs/Path.h>
 #include <actionlib_msgs/GoalID.h>
 #include <std_msgs/Bool.h>
 
@@ -43,7 +44,8 @@ namespace spqrel_navigation {
     std::string _cancel_topic;
     std::string _reset_topic;
     std::string _cmd_vel_topic;
-
+    std::string _path_topic;
+    
     //Subscribers
     ros::Subscriber _laserwpose_sub;
     ros::Subscriber _goal_sub;
@@ -65,8 +67,10 @@ namespace spqrel_navigation {
 
     //Publishers
     ros::Publisher _cmd_vel_pub;
+    ros::Publisher _path_pub;
     void startCmdVelPublisher();
-    virtual void publishPath(){};
+    void startPathPublisher();
+    virtual void publishPath();
     virtual void publishState(){};
     virtual void publishResult(){};
     virtual void publishExecutionStatus(){};

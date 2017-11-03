@@ -28,14 +28,22 @@ namespace srrg_planner {
 
     // Path map parameters
     inline void setMaxCost(float max_cost) {_max_cost = max_cost;}
-    inline float getMaxCost() const {return _max_cost;}
+    inline float maxCost() const {return _max_cost;}
     inline void setMinCost(float min_cost) {_min_cost = min_cost;}
-    inline float getMinCost() const {return _min_cost;}
+    inline float minCost() const {return _min_cost;}
     inline void setRobotRadius(float robot_radius) {_robot_radius = robot_radius;}
-    inline float getRobotRadius() const {return _robot_radius;}
+    inline float robotRadius() const {return _robot_radius;}
     inline void setSafetyRegion(float safety_region) {_safety_region = safety_region;}
-    inline float getSafetyRegion() const {return _safety_region;}
+    inline float safetyRegion() const {return _safety_region;}
 
+    // Motion controller parameters
+    inline void setMaxLinearVel(float max_linear_vel) {_motion_controller.setMaxLinearVel(max_linear_vel);}
+    inline void setMaxAngularVel(float max_angular_vel) {_motion_controller.setMaxAngularVel(max_angular_vel);}
+    inline void setMaxLinearAcc(float max_linear_acc) {_motion_controller.setMaxLinearAcc(max_linear_acc);}
+    inline void setMaxAngularAcc(float max_linear_acc) {_motion_controller.setMaxAngularAcc(max_linear_acc);}
+    inline void setGoalTranslationTolerance(float goal_translation_tolerance) {_motion_controller.setGoalTranslationTolerance(goal_translation_tolerance);}
+    inline void setGoalRotationTolerance(float goal_rotation_tolerance) {_motion_controller.setGoalRotationTolerance(goal_rotation_tolerance);}
+  
     //! reads a map in yaml format
     void readMap(const std::string mapname);
     
@@ -162,6 +170,7 @@ namespace srrg_planner {
     virtual void subscribeReset() = 0;
     //! Publishers
     virtual void startCmdVelPublisher() = 0;
+    virtual void startPathPublisher() = 0;
     virtual void publishPath() = 0;
     virtual void publishState() = 0;
     virtual void publishResult() = 0;

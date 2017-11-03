@@ -29,7 +29,7 @@ namespace srrg_planner {
 
   void Planner::cancelGoal() {
     _have_goal = false;
-
+    _path.clear();
     stopRobot();
   }
 
@@ -480,6 +480,7 @@ namespace srrg_planner {
     std::cerr << "Starting publishers." << std::endl;
 
     startCmdVelPublisher();
+    startPathPublisher();
 
   }
 
@@ -500,5 +501,8 @@ namespace srrg_planner {
 
     if (_use_gui)
       handleGUI();
+
+    if (_path.size())
+      publishPath();
   }
 }

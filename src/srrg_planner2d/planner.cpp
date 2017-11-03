@@ -58,11 +58,9 @@ namespace srrg_planner {
     //I'm doing also backup of the cost_map without obstacles
     _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
     distances2cost(_cost_image_backup,
-		   _distance_image,
-		   _robot_radius,
-		   _safety_region,
-		   _min_cost,
-		   _max_cost);
+		   _distance_image, _robot_radius, _safety_region, _min_cost, _max_cost);
+    distances2cost(_cost_image,
+		   _distance_image, _robot_radius, _safety_region, _min_cost, _max_cost);
   }
   
   void Planner::readMap(const std::string mapname){
@@ -129,7 +127,14 @@ namespace srrg_planner {
     cv::namedWindow( "spqrel_planner", 0 );
     cv::setMouseCallback( "spqrel_planner", &Planner::onMouse, this );
     handleGUIDisplay();
+    std::cerr << std::endl;
     std::cerr << "GUI initialized" << std::endl;
+    std::cerr << "Use the following keys on the GUI:" << std::endl;
+    std::cerr << "M: change to map view" << std::endl;
+    std::cerr << "D: change to distance map view" << std::endl;
+    std::cerr << "C: change to cost map view" << std::endl;
+    std::cerr << "R: reset planner state (clear dynamic obstacles and current goal)" << std::endl;
+    std::cerr << std::endl;
   }
 
   void Planner::onMouse( int event, int x, int y, int flags, void* v){

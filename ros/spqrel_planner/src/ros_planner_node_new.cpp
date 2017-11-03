@@ -11,14 +11,7 @@ int main(int argc, char **argv){
     //constructs the planner
     ROSPlanner* rosplanner = new ROSPlanner(n);
 
-    //_map_service_id
-    //std::string map_service_id;
-    //private_nh.param("map_service_id", map_service_id, std::string("static_map"));
-    //rosplanner->setMapServiceId(map_service_id);
-    //cout << "ros_planner: [string] _map_service_id: " << map_service_id << endl;
-
     rosplanner->getParams();
-    rosplanner->useGUI(true);
 
     //requests the map
     rosplanner->requestMap();

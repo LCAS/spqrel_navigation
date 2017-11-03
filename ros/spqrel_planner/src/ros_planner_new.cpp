@@ -30,6 +30,10 @@ namespace spqrel_navigation {
   void ROSPlanner::getParams() {
     ros::NodeHandle private_nh("~");
     
+    bool use_gui;
+    if (private_nh.getParam("use_gui", use_gui))
+      useGUI(use_gui);
+
     private_nh.getParam("laser_topic", _laser_topic);
     private_nh.getParam("goal_topic", _goal_topic);
     private_nh.getParam("map_topic", _map_topic);
@@ -60,8 +64,9 @@ namespace spqrel_navigation {
       setGoalTranslationTolerance(goal_translation_tolerance);    
     if (private_nh.getParam("goal_rotation_tolerance", goal_rotation_tolerance))
       setGoalRotationTolerance(goal_rotation_tolerance);    
-    
+
     std::cerr << "SPQReL ROS Planner launched with params:"      << std::endl;
+    std::cerr << "  use_gui: "            << use_gui             << std::endl;
     std::cerr << "  laser_topic: "        << _laser_topic        << std::endl;
     std::cerr << "  goal_topic: "         << _goal_topic         << std::endl;
     std::cerr << "  map_topic: "          << _map_topic          << std::endl;
@@ -78,9 +83,8 @@ namespace spqrel_navigation {
     std::cerr << "  max_angular_acc: "    << maxAngularAcc()     << std::endl;
     std::cerr << "  goal_translation_tolerance: " << goalTranslationTolerance() << std::endl;
     std::cerr << "  goal_rotation_tolerance: "    << goalRotationTolerance()    << std::endl;
+    std::cerr << std::endl;
   }
-
-
   
   void ROSPlanner::stopRobot() {
     geometry_msgs::Twist vel;

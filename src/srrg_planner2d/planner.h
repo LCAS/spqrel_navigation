@@ -38,9 +38,14 @@ namespace srrg_planner {
 
     // Motion controller parameters
     inline void setMaxLinearVel(float max_linear_vel) {_motion_controller.setMaxLinearVel(max_linear_vel);}
+    inline float maxLinearVel() const {return _motion_controller.maxLinearVel();}
     inline void setMaxAngularVel(float max_angular_vel) {_motion_controller.setMaxAngularVel(max_angular_vel);}
+    inline float maxAngularVel() const {return _motion_controller.maxAngularVel();}
     inline void setMaxLinearAcc(float max_linear_acc) {_motion_controller.setMaxLinearAcc(max_linear_acc);}
-    inline void setMaxAngularAcc(float max_linear_acc) {_motion_controller.setMaxAngularAcc(max_linear_acc);}
+    inline float maxLinearAcc() const {return _motion_controller.maxLinearAcc();}
+    inline void setMaxAngularAcc(float max_angular_acc) {_motion_controller.setMaxAngularAcc(max_angular_acc);}
+    inline float maxAngularAcc() const {return _motion_controller.maxAngularAcc();}
+    
     inline void setGoalTranslationTolerance(float goal_translation_tolerance) {_motion_controller.setGoalTranslationTolerance(goal_translation_tolerance);}
     inline void setGoalRotationTolerance(float goal_rotation_tolerance) {_motion_controller.setGoalRotationTolerance(goal_rotation_tolerance);}
   

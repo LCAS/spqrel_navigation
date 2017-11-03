@@ -324,7 +324,7 @@ namespace srrg_planner {
     
     
   }
-
+  
   void Planner::plannerStep(){
     if (!_have_goal)
       return;

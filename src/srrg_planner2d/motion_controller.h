@@ -33,11 +33,11 @@ class MotionController {
     _updateParameters();
   }
   inline float maxLinearAcc() const {return _max_linear_acc;}
-  inline void setMaxAngularAcc(float max_linear_acc) {
-    _max_linear_acc = max_linear_acc;
+  inline void setMaxAngularAcc(float max_angular_acc) {
+    _max_angular_acc = max_angular_acc;
     _updateParameters();
   }
-  inline float maxAngularAcc() const {return _max_linear_acc;}
+  inline float maxAngularAcc() const {return _max_angular_acc;}
 
   inline void resetVelocities() {
     _prev_linear_vel = 0;

@@ -4,12 +4,15 @@ namespace spqrel_navigation {
 
   using namespace srrg_planner;
   
-  ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener): _nh(nh){
+  ROSPlanner::ROSPlanner(ros::NodeHandle& nh, tf::TransformListener* listener):
+    _nh(nh), _as(_nh, "move_base", false) {
     
     _listener = listener;
     if (! _listener)
       _listener = new tf::TransformListener;
-      
+
+    _as.start();
+    
     _laser_topic = "base_scan";
     _goal_topic = "move_base_simple/goal";
     _map_topic = "map";
@@ -111,6 +114,7 @@ namespace spqrel_navigation {
   void ROSPlanner::subscribeGoal(){
     std::cerr << "Subscribing to Goal: " << _goal_topic << std::endl;
     _goal_sub = _nh.subscribe(_goal_topic, 2, &ROSPlanner::goalCallback, this);
+    _as.registerGoalCallback(boost::bind(&ROSPlanner::moveBaseGoalCallback, this));
   }
 
   void ROSPlanner::subscribeMap(){
@@ -223,6 +227,15 @@ namespace spqrel_navigation {
              new_goal.y(),
              new_goal.z());
   }
+
+  void ROSPlanner::moveBaseGoalCallback() {
+    move_base_msgs::MoveBaseGoalConstPtr move_base_goal = _as.acceptNewGoal();
+    geometry_msgs::PoseStamped new_goal = move_base_goal->target_pose;
+    
+    geometry_msgs::PoseStampedConstPtr  new_goal_ptr (new geometry_msgs::PoseStamped(new_goal));
+    
+    goalCallback(new_goal_ptr);  
+  }
   
   void ROSPlanner::mapCallback(const::nav_msgs::OccupancyGrid& msg) {
 
@@ -278,7 +291,7 @@ namespace spqrel_navigation {
   void ROSPlanner::startPathPublisher(){
     _path_pub = _nh.advertise<nav_msgs::Path>(_path_topic, 1);
   }
-
+  
   void ROSPlanner::publishPath(){
     nav_msgs::Path path;
 
@@ -312,6 +325,17 @@ namespace spqrel_navigation {
 
   }
 
+  void ROSPlanner::publishResult(PlannerResult result) {
+    if (!_as.isActive())
+      return;
+    if (result == GoalReached){
+      _as.setSucceeded(move_base_msgs::MoveBaseResult(), "Goal reached.");
+    }
+    if (result == Aborted){
+      _as.setAborted(move_base_msgs::MoveBaseResult(), "Internal event: Aborted");
+    }
+  }
+  
   void ROSPlanner::requestMap(){
     // get map via RPC
     nav_msgs::GetMap::Request  req;

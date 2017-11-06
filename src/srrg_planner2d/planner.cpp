@@ -23,12 +23,14 @@ namespace srrg_planner {
     _laser_points.clear();
     _dyn_map.clearPoints();
 
-    _state = WaitingForMap;
+    //_state = WaitingForMap;
   }
 
   void Planner::cancelGoal() {
     _have_goal = false;
     _path.clear();
+    _velocities = Eigen::Vector2f::Zero();
+    _motion_controller.resetVelocities();
     stopRobot();
   }
   
@@ -389,14 +391,20 @@ namespace srrg_planner {
     _path = _obstacle_path;
 
     if (!_path.size()){
-      _velocities = Eigen::Vector2f::Zero();
-      _motion_controller.resetVelocities();
+      if (_robot_pose_pixel == _goal_pixel){
+	// Path is zero because robot is on the goal
+	publishResult(GoalReached);
+      }else{
+	publishResult(Aborted);
+      }
+      cancelGoal();
     } else {
       bool goal_reached = computeControlToWaypoint();
       
-      if (goal_reached)
+      if (goal_reached){
+	publishResult(GoalReached);
 	cancelGoal();
-      else
+      }else
 	applyVelocities();
     }
 
@@ -482,7 +490,7 @@ namespace srrg_planner {
 
     startCmdVelPublisher();
     startPathPublisher();
-
+    startResultPublisher();
   }
 
   void Planner::init(){
@@ -506,4 +514,10 @@ namespace srrg_planner {
     if (_path.size())
       publishPath();
   }
+
+
+
+
+
+  
 }

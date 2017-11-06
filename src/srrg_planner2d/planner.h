@@ -17,7 +17,9 @@ namespace srrg_planner {
   using namespace srrg_core;
 
   enum WhatToShow {Map, Distance, Cost};
-  enum State {WaitingForMap, WaitingForGoal, GoalAccepted, PathFound, PathNotFound, GoalReached};
+  //enum State {WaitingForMap, WaitingForGoal, GoalAccepted, PathFound, PathNotFound, GoalReached};
+  //enum Event {MapRecieved, GoalReceived};
+  enum PlannerResult {GoalReached, Aborted};
   
   class Planner {
   public:
@@ -179,14 +181,15 @@ namespace srrg_planner {
     //! Publishers
     virtual void startCmdVelPublisher() = 0;
     virtual void startPathPublisher() = 0;
+    virtual void startResultPublisher() = 0;
     virtual void publishPath() = 0;
     virtual void publishState() = 0;
-    virtual void publishResult() = 0;
+    virtual void publishResult(PlannerResult result) = 0;
     virtual void publishExecutionStatus() = 0;
 
     
     //! Status
-    State _state;
+    //State _state;
   };
 
 

@@ -7,6 +7,8 @@
 #include <nav_msgs/GetMap.h>
 #include <nav_msgs/Path.h>
 #include <actionlib_msgs/GoalID.h>
+#include <actionlib/server/simple_action_server.h>
+#include <move_base_msgs/MoveBaseAction.h>
 #include <std_msgs/Bool.h>
 
 
@@ -37,7 +39,8 @@ namespace spqrel_navigation {
 
     ros::NodeHandle& _nh;
     tf::TransformListener* _listener;
-
+    actionlib::SimpleActionServer<move_base_msgs::MoveBaseAction> _as;
+    
     //Topics
     std::string _laser_topic;
     std::string _goal_topic;
@@ -63,6 +66,7 @@ namespace spqrel_navigation {
     //Callbacks
     void laserWithPoseCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
     void goalCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+    void moveBaseGoalCallback();
     void mapCallback(const::nav_msgs::OccupancyGrid& msg);
     void cancelCallback(const actionlib_msgs::GoalID& msg);
     void resetCallback(const std_msgs::Bool& msg);
@@ -72,9 +76,10 @@ namespace spqrel_navigation {
     ros::Publisher _path_pub;
     void startCmdVelPublisher();
     void startPathPublisher();
+    void startResultPublisher(){};
     virtual void publishPath();
     virtual void publishState(){};
-    virtual void publishResult(){};
+    virtual void publishResult(PlannerResult result);
     virtual void publishExecutionStatus(){};
 
     //Frames

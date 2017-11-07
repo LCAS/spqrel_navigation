@@ -270,7 +270,8 @@ namespace spqrel_navigation {
 			       tf::getYaw(msg.info.origin.orientation));
 
     setMapFromImage(map_image, msg.info.resolution, map_origin, 0.65, 0.05);
-    reset();
+    // This reset cancels the current goal
+    //reset();
   }
 
 

@@ -151,6 +151,7 @@ namespace srrg_planner {
 
     //! Goal managing
     void setGoalGUI(Eigen::Vector2i goal);
+    void updateGoals();
     bool _have_goal;
     bool _have_goal_with_angle;
     Eigen::Vector3f _goal; //map coordinates wrt _map_origin

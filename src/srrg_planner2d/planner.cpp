@@ -149,12 +149,19 @@ namespace srrg_planner {
   }
 
   void Planner::setGoalGUI(Eigen::Vector2i goal){
+    _mtx_display.lock();
+    //Goal given in pixels
     _goal_pixel = goal;
+    //Transform from pixels to image [m]
     Eigen::Vector2f goal_image_xy = grid2world(goal);
     _goal_image = Eigen::Vector3f(goal_image_xy.x(), goal_image_xy.y(), 0);
+    //Transform from image to map_origin
+    Eigen::Isometry2f goal_transform = v2t(_image_map_origin) * v2t(_goal_image);
+    _goal = t2v(goal_transform);
     _have_goal = true;
     _have_goal_with_angle = false;
     std::cerr << "Setting goal: " << _goal_pixel.transpose() << std::endl;
+    _mtx_display.unlock();
   }
 
   void Planner::setGoal(const Eigen::Vector3f& goal){
@@ -163,17 +170,27 @@ namespace srrg_planner {
     _mtx_display.lock();
     _have_goal = true;
     _have_goal_with_angle = true;
-
+    //Goal given wrt map_origin
     _goal = goal;
-
+    //From map_origin to image
     Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(_goal);
     _goal_image = t2v(goal_transform); // image coordinates
-    
+    //From image to pixels
     _goal_pixel = world2grid(Eigen::Vector2f(_goal_image.x(), _goal_image.y()));  // pixel
 
     _mtx_display.unlock();
   }
 
+  void Planner::updateGoals(){
+    _mtx_display.lock();
+     //From map_origin to image
+    Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(_goal);
+    _goal_image = t2v(goal_transform); // image coordinates
+    //From image to pixels
+    _goal_pixel = world2grid(Eigen::Vector2f(_goal_image.x(), _goal_image.y()));  // pixel
+    _mtx_display.unlock();
+  }
+  
   void Planner::setRobotPose(const Eigen::Vector3f& robot_pose){
     _mtx_display.lock();
   
@@ -516,6 +533,57 @@ namespace srrg_planner {
   }
 
 
+  /*
+  void Planner::manageEvent(Event event){
+
+    State next_state;
+    if (event == MapReceived){
+      // Leave current goal active???
+      // or wait for a new goal, in that case we should cancel current goal
+
+      next_state = WaitingForGoal;
+    }
+
+    if (event == GoalReceived){
+      // should cancel previous goal
+      next_state = GoalAccepted;
+    }
+    
+    if (_state == GoalAccepted && event == PathFound){
+    
+    next_state = ExecutingPath;
+
+    }
+    
+    if (event == GoalReached){
+    publishResult(GoalReached);
+    next_state = WaitingForGoal;
+    }
+
+    if (event == Cancel){
+    if (_state != WaitingForMap && _state != WaitingForGoal )
+    cancelGoal();
+    }
+
+
+
+
+
+  void Planner::run(){
+    if (_state == GoalAccepted || _state == ExecutingPath)
+      plannerStep();
+
+    if (_use_gui)
+      handleGUI();
+
+    if (_path.size())
+      publishPath();
+  }
+
+
+
+
+*/
 
 
 

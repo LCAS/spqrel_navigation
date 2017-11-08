@@ -111,16 +111,9 @@ else(qibuild_DIR)
   )
 
   add_executable(spqrel_planner_node
-    ros/spqrel_planner/src/planner.cpp
     ros/spqrel_planner/src/ros_planner.cpp
     ros/spqrel_planner/src/ros_planner_node.cpp
   )
-
-  add_executable(spqrel_planner_node_new
-    ros/spqrel_planner/src/ros_planner_new.cpp
-    ros/spqrel_planner/src/ros_planner_node_new.cpp
-  )
-
 
   ## Add cmake target dependencies of the executable
   ## same as for the library above
@@ -138,13 +131,6 @@ else(qibuild_DIR)
     spqrel_navigation_generate_messages_cpp
   )
 
-  add_dependencies(spqrel_planner_node_new
-    srrg_ros
-    ${${PROJECT_NAME}_EXPORTED_TARGETS} 
-    ${catkin_EXPORTED_TARGETS}
-    spqrel_navigation_generate_messages_cpp
-    )
-  
   ## Specify libraries to link a library or executable target against
   target_link_libraries(srrg_localizer2d_node
     srrg_ros
@@ -153,12 +139,6 @@ else(qibuild_DIR)
   )
 
   target_link_libraries(spqrel_planner_node
-    srrg_ros
-    ${catkin_LIBRARIES}
-    ${OpenCV_LIBS} 
-  )
-
-  target_link_libraries(spqrel_planner_node_new
     srrg_ros
     ${catkin_LIBRARIES}
     ${OpenCV_LIBS} 

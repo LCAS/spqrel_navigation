@@ -52,7 +52,12 @@ namespace srrg_planner {
     inline float goalTranslationTolerance() const {return _motion_controller.goalTranslationTolerance();}
     inline void setGoalRotationTolerance(float goal_rotation_tolerance) {_motion_controller.setGoalRotationTolerance(goal_rotation_tolerance);}
     inline float goalRotationTolerance() const {return _motion_controller.goalRotationTolerance();}
-  
+
+    inline void setRecoveryWaitingTime(int recovery_waiting_time) {_recovery_waiting_time = recovery_waiting_time;}
+    inline int recoveryWaitingTime() const {return _recovery_waiting_time;}
+    inline void setRecoveryObstacleDistance(float recovery_obstacle_distance) {_recovery_obstacle_distance = recovery_obstacle_distance;}
+    inline float recoveryObstacleDistance() const {return _recovery_obstacle_distance;}
+    
     //! reads a map in yaml format
     void readMap(const std::string mapname);
     
@@ -170,7 +175,7 @@ namespace srrg_planner {
     //! Motion generator
     Eigen::Vector2f _velocities;
     MotionController _motion_controller;
-    bool computeControlToWaypoint();
+    bool computeControlToWaypoint(bool goal_with_angle);
 
     //! Virtual functions to be implemented for the specific environment (e.g., ROS, NAOqi...) 
     //! Subscribers
@@ -188,9 +193,14 @@ namespace srrg_planner {
     virtual void publishResult(PlannerResult result) = 0;
     virtual void publishExecutionStatus() = 0;
 
-    
-    //! Status
-    //State _state;
+    //! Recovery procedures
+    bool _on_recovery_time;
+    std::chrono::steady_clock::time_point _recovery_time;
+    int _recovery_waiting_time;
+    float _recovery_obstacle_distance;
+    bool manageRecovery();
+    bool recoveryTime();
+    bool recoveryPath();
   };
 
 

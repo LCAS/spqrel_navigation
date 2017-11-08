@@ -68,6 +68,14 @@ namespace spqrel_navigation {
     if (private_nh.getParam("goal_rotation_tolerance", goal_rotation_tolerance))
       setGoalRotationTolerance(goal_rotation_tolerance);    
 
+    int recovery_waiting_time;
+    float recovery_obstacle_distance;
+    if (private_nh.getParam("recovery_waiting_time", recovery_waiting_time))
+      setRecoveryWaitingTime(recovery_waiting_time);    
+    if (private_nh.getParam("recovery_obstacle_distance", recovery_obstacle_distance))
+      setRecoveryObstacleDistance(recovery_obstacle_distance);    
+
+    
     std::cerr << "SPQReL ROS Planner launched with params:"      << std::endl;
     std::cerr << "  use_gui: "            << use_gui             << std::endl;
     std::cerr << "  laser_topic: "        << _laser_topic        << std::endl;
@@ -86,6 +94,8 @@ namespace spqrel_navigation {
     std::cerr << "  max_angular_acc: "    << maxAngularAcc()     << std::endl;
     std::cerr << "  goal_translation_tolerance: " << goalTranslationTolerance() << std::endl;
     std::cerr << "  goal_rotation_tolerance: "    << goalRotationTolerance()    << std::endl;
+    std::cerr << "  recovery_waiting_time: "      << recoveryWaitingTime()      << std::endl;
+    std::cerr << "  recovery_obstacle_distance: " << recoveryObstacleDistance() << std::endl;
     std::cerr << std::endl;
   }
   

@@ -23,7 +23,10 @@ namespace srrg_planner {
     _laser_points.clear();
     _dyn_map.clearPoints();
 
-    //_state = WaitingForMap;
+    _on_recovery_time = false;
+    _recovery_waiting_time = 10;
+    _recovery_obstacle_distance = 1.0;
+
   }
 
   void Planner::cancelGoal() {
@@ -31,6 +34,7 @@ namespace srrg_planner {
     _path.clear();
     _velocities = Eigen::Vector2f::Zero();
     _motion_controller.resetVelocities();
+    _on_recovery_time = false;
     stopRobot();
   }
   
@@ -373,9 +377,6 @@ namespace srrg_planner {
 
     std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
-    //Get nominal path without obstacles
-    //computePath(_cost_image_backup, _path_map_backup, _goal_pixel, _nominal_path);
-
     //Adding obstacles
     std::chrono::steady_clock::time_point time_dmap_start = std::chrono::steady_clock::now();
     _distance_map.data()=_distance_map_backup;
@@ -411,12 +412,20 @@ namespace srrg_planner {
       if (_robot_pose_pixel == _goal_pixel){
 	// Path is zero because robot is on the goal
 	publishResult(GoalReached);
+	cancelGoal();
       }else{
-	publishResult(Aborted);
+	bool recovery_success = manageRecovery();
+	if (!recovery_success){
+	  publishResult(Aborted);
+	  cancelGoal();	  
+	}
       }
-      cancelGoal();
     } else {
-      bool goal_reached = computeControlToWaypoint();
+
+      if (_on_recovery_time)
+	_on_recovery_time = false; //Path was found after recoveryTime
+      
+      bool goal_reached = computeControlToWaypoint(_have_goal_with_angle);
       
       if (goal_reached){
 	publishResult(GoalReached);
@@ -430,8 +439,6 @@ namespace srrg_planner {
     std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
  
   }
-
-
 
   void Planner::computePath(FloatImage& cost_map, PathMap& path_map, Eigen::Vector2i& goal, Vector2iVector &path){
     std::chrono::steady_clock::time_point time_path_start = std::chrono::steady_clock::now();
@@ -454,7 +461,7 @@ namespace srrg_planner {
   }
 
 
-  bool Planner::computeControlToWaypoint(){
+  bool Planner::computeControlToWaypoint(bool goal_with_angle){
     
     // Next waypoint naive computation.
     float nextwp_distance = 1.0; //meters
@@ -469,10 +476,9 @@ namespace srrg_planner {
       isLastWp = true;
     }
 
-
     bool goal_reached = false;
     if (isLastWp){
-      if (_have_goal_with_angle){
+      if (goal_with_angle){
 	// Giving (x, y, theta) to controller to arrive with the given robot orientation
 	goal_reached = _motion_controller.computeVelocities(_robot_pose_image, _goal_image, _velocities);
       }
@@ -532,60 +538,76 @@ namespace srrg_planner {
       publishPath();
   }
 
-
-  /*
-  void Planner::manageEvent(Event event){
-
-    State next_state;
-    if (event == MapReceived){
-      // Leave current goal active???
-      // or wait for a new goal, in that case we should cancel current goal
-
-      next_state = WaitingForGoal;
-    }
-
-    if (event == GoalReceived){
-      // should cancel previous goal
-      next_state = GoalAccepted;
-    }
+  bool Planner::manageRecovery(){
     
-    if (_state == GoalAccepted && event == PathFound){
+    // if we can compute a path to approach the goal we follow it
+    // else stop the robot and wait some time before aborting
     
-    next_state = ExecutingPath;
-
+    if (recoveryPath()){
+      computeControlToWaypoint(false);
+      applyVelocities();
+      return true;
     }
-    
-    if (event == GoalReached){
-    publishResult(GoalReached);
-    next_state = WaitingForGoal;
+    else {
+      _motion_controller.resetVelocities();
+      stopRobot();
+      return recoveryTime();
     }
-
-    if (event == Cancel){
-    if (_state != WaitingForMap && _state != WaitingForGoal )
-    cancelGoal();
-    }
-
-
-
-
-
-  void Planner::run(){
-    if (_state == GoalAccepted || _state == ExecutingPath)
-      plannerStep();
-
-    if (_use_gui)
-      handleGUI();
-
-    if (_path.size())
-      publishPath();
   }
 
+  bool Planner::recoveryTime(){
+    //Returns false if recovery failed (waiting time exceeded)
+    if (!_on_recovery_time){
+      //First call to recovery
+      _on_recovery_time = true;
+      //Start count time
+      _recovery_time = std::chrono::steady_clock::now();
+      return true;
+    }
+    else {
+      std::chrono::steady_clock::time_point current_time = std::chrono::steady_clock::now();
 
+      int time_waited = std::chrono::duration_cast<std::chrono::seconds>(current_time - _recovery_time).count();
 
-
-*/
-
-
+      return time_waited <= _recovery_waiting_time;
+    }
+  }
 
   
+  bool Planner::recoveryPath(){
+    
+    //Get nominal path without obstacles
+    computePath(_cost_image_backup, _path_map_backup, _goal_pixel, _nominal_path);
+
+    if (_nominal_path.size()){
+      //Extract part of the nominal path up to the blocking obstacle
+      _path.clear();
+      Eigen::Vector2i cell;
+      for (size_t i=0; i<_nominal_path.size(); i++){
+	cell = _nominal_path[i];
+	//std::cerr << _cost_image(cell.x(), cell.y()) << std::endl;
+	if (_cost_image(cell.x(), cell.y()) != maxCost())
+	  _path.push_back(cell);
+	else
+	  break;
+      }
+
+      Eigen::Vector2f obstacle_image = grid2world(cell);
+      //Check if we can approach the obstacle
+      float distance_goal = sqrt((_robot_pose_image.x()-obstacle_image.x())*(_robot_pose_image.x()-obstacle_image.x())+
+				 (_robot_pose_image.y()-obstacle_image.y())*(_robot_pose_image.y()-obstacle_image.y()));
+
+      if ( distance_goal > _recovery_obstacle_distance){
+	return true;	
+      }else
+	return false;
+
+    }
+    else {
+      std::cerr << "Recovery plan failed: path not found on empty space." << std::endl;
+      return false;
+    }
+    
+  }
+ 
 }

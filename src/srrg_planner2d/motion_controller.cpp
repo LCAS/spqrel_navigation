@@ -8,9 +8,12 @@ MotionController::MotionController(){
   _max_angular_vel = 0.5;
   _max_angular_acc = 2.0;
 
+  _min_linear_vel  = 0.05;
+  _min_angular_vel = 0.05;
+  
   _updateParameters();
 
-  _prev_linear_vel = 0;
+  _prev_linear_vel  = 0;
   _prev_angular_vel = 0;
 
   _T = 0.2;
@@ -43,7 +46,6 @@ void MotionController::_movementGenerator(Eigen::Vector2f& F, float& v, float& w
   }
 
   std::cerr << "Force: " << F.transpose() << std::endl;
-
   v = (F.x() * _T + _prev_linear_vel) / (1 + 2 * _b * _T);
   w = (_k_i * _h * F.y() * _T + _prev_angular_vel) / (1 + 2 * _b * _k_i * _T);
 
@@ -74,9 +76,12 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
     _movementGenerator(F, v, w);
     
     // Check if angle to the goal greater than a threshold
-    if (fabs(angle_goal) > _goal_rotation_tolerance)
+    if (fabs(angle_goal) > _goal_rotation_tolerance){
       // Switch to rotation-only behaviour to orientate towards the goal
+      if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
+	w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
       velocities.y() = w;
+    }
     else {
       // Otherwise the velocities computed are returned
       velocities.x() = v;
@@ -118,6 +123,8 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
       float v, w;
       _movementGenerator(F, v, w);
 
+      if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
+	w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
       velocities.y() = w;
     } else {
       // We are close and oriented
@@ -131,9 +138,12 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
     _movementGenerator(F, v, w);
 
     // Check if angle to the goal greater than a threshold
-    if (fabs(angle_goal) > _goal_rotation_tolerance)
+    if (fabs(angle_goal) > _goal_rotation_tolerance){
       // Switch to rotation-only behaviour to orientate towards the goal
+      if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
+	w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
       velocities.y() = w;
+    }
     else {
       // Otherwise the velocities computed are returned
       velocities.x() = v;

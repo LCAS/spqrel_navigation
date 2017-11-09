@@ -38,6 +38,11 @@ class MotionController {
     _updateParameters();
   }
   inline float maxAngularAcc() const {return _max_angular_acc;}
+  
+  inline void setMinLinearVel(float min_linear_vel) {_min_linear_vel = min_linear_vel;}
+  inline float minLinearVel() const {return _min_linear_vel;}
+  inline void setMinAngularVel(float min_angular_vel) {_min_angular_vel = min_angular_vel;}
+  inline float minAngularVel() const {return _min_angular_vel;}
 
   inline void resetVelocities() {
     _prev_linear_vel = 0;
@@ -68,6 +73,7 @@ protected:
   float _f, _b, _k_i, _h, _T;
 
   float _max_linear_vel, _max_angular_vel, _max_linear_acc, _max_angular_acc;
+  float _min_linear_vel, _min_angular_vel;
   float _prev_linear_vel, _prev_angular_vel;
 
   float _goal_translation_tolerance, _goal_rotation_tolerance;

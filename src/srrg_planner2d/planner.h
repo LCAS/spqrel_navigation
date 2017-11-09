@@ -47,7 +47,9 @@ namespace srrg_planner {
     inline float maxLinearAcc() const {return _motion_controller.maxLinearAcc();}
     inline void setMaxAngularAcc(float max_angular_acc) {_motion_controller.setMaxAngularAcc(max_angular_acc);}
     inline float maxAngularAcc() const {return _motion_controller.maxAngularAcc();}
-    
+    inline void setMinAngularVel(float min_angular_vel) {_motion_controller.setMinAngularVel(min_angular_vel);}
+    inline float minAngularVel() const {return _motion_controller.minAngularVel();}
+
     inline void setGoalTranslationTolerance(float goal_translation_tolerance) {_motion_controller.setGoalTranslationTolerance(goal_translation_tolerance);}
     inline float goalTranslationTolerance() const {return _motion_controller.goalTranslationTolerance();}
     inline void setGoalRotationTolerance(float goal_rotation_tolerance) {_motion_controller.setGoalRotationTolerance(goal_rotation_tolerance);}

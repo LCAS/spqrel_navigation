@@ -53,6 +53,7 @@ namespace spqrel_navigation {
       setRobotRadius(robot_radius);
     
     float max_linear_vel, max_angular_vel, max_linear_acc, max_angular_acc;
+    float min_angular_vel;
     if (private_nh.getParam("max_linear_vel", max_linear_vel))
       setMaxLinearVel(max_linear_vel);
     if (private_nh.getParam("max_angular_vel", max_angular_vel))
@@ -61,6 +62,8 @@ namespace spqrel_navigation {
       setMaxLinearAcc(max_linear_acc);
     if (private_nh.getParam("max_angular_acc", max_angular_acc))
       setMaxAngularAcc(max_angular_acc);
+    if (private_nh.getParam("min_angular_vel", min_angular_vel))
+      setMinAngularVel(min_angular_vel);
     
     float goal_translation_tolerance, goal_rotation_tolerance;
     if (private_nh.getParam("goal_translation_tolerance", goal_translation_tolerance))
@@ -92,6 +95,7 @@ namespace spqrel_navigation {
     std::cerr << "  max_angular_vel: "    << maxAngularVel()     << std::endl;
     std::cerr << "  max_linear_acc: "     << maxLinearAcc()      << std::endl;
     std::cerr << "  max_angular_acc: "    << maxAngularAcc()     << std::endl;
+    std::cerr << "  min_angular_vel: "    << minAngularVel()     << std::endl;
     std::cerr << "  goal_translation_tolerance: " << goalTranslationTolerance() << std::endl;
     std::cerr << "  goal_rotation_tolerance: "    << goalRotationTolerance()    << std::endl;
     std::cerr << "  recovery_waiting_time: "      << recoveryWaitingTime()      << std::endl;

@@ -32,9 +32,6 @@ namespace spqrel_navigation {
     void stopRobot();
     void applyVelocities();
 
-    virtual void stopSubscribers(){};    
-    virtual void stopPublishers(){};
-    
   protected:
 
     ros::NodeHandle& _nh;
@@ -62,7 +59,9 @@ namespace spqrel_navigation {
     void subscribeMap();
     void subscribeCancel();
     void subscribeReset();
-
+    virtual void stopSubscribers(){};    
+    virtual void stopPublishers(){};
+    
     //Callbacks
     void laserWithPoseCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
     void goalCallback(const geometry_msgs::PoseStampedConstPtr& msg);

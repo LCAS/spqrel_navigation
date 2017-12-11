@@ -6,7 +6,6 @@ using namespace spqrel_navigation;
 int main(int argc, char **argv){
     ros::init(argc, argv, "spqrel_planner_node");
     ros::NodeHandle n;
-    //ros::NodeHandle private_nh("~");
 
     //constructs the planner
     ROSPlanner* rosplanner = new ROSPlanner(n);
@@ -26,7 +25,6 @@ int main(int argc, char **argv){
       ros::spinOnce();
       r.sleep();
     }
-    //rosplanner->quit();
 
     return 0;
 }

@@ -527,7 +527,7 @@ namespace srrg_planner {
     
   }
 
-  void Planner::run(){
+  void Planner::runOnce(){
     if (_have_goal)
       plannerStep();
 

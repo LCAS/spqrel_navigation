@@ -16,12 +16,11 @@ int main(int argc, char **argv){
     rosplanner->requestMap();
     
     // init the planner
-    rosplanner->init();  // this function sets a subscriber to laser topic 
-                         // that is the main execution thread for the planner
+    rosplanner->init();  
 
     ros::Rate r(10);
     while (ros::ok()){
-      rosplanner->run();
+      rosplanner->runOnce();
       ros::spinOnce();
       r.sleep();
     }

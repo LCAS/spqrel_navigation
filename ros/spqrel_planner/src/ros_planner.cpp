@@ -348,9 +348,11 @@ namespace spqrel_navigation {
       return;
     if (result == GoalReached){
       _as.setSucceeded(move_base_msgs::MoveBaseResult(), "Goal reached.");
+      return;
     }
     if (result == Aborted){
       _as.setAborted(move_base_msgs::MoveBaseResult(), "Internal event: Aborted");
+      return;
     }
   }
   

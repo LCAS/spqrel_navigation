@@ -105,7 +105,7 @@ namespace srrg_planner {
     virtual void stopPublishers() = 0;
 
     virtual void init();
-    virtual void run();
+    virtual void runOnce();
     
     
   protected:

@@ -60,7 +60,6 @@ namespace spqrel_navigation {
     void subscribeCancel();
     void subscribeReset();
     virtual void stopSubscribers(){};    
-    virtual void stopPublishers(){};
     
     //Callbacks
     void laserWithPoseCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
@@ -76,10 +75,11 @@ namespace spqrel_navigation {
     void startCmdVelPublisher();
     void startPathPublisher();
     void startResultPublisher(){};
-    virtual void publishPath();
+    void publishPath();
     virtual void publishState(){};
     virtual void publishResult(PlannerResult result);
     virtual void publishExecutionStatus(){};
+    virtual void stopPublishers(){};
 
     //Frames
     std::string _base_frame_id;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <thread>
+
 #include <qi/session.hpp>
 #include <boost/program_options.hpp>
 
@@ -21,6 +23,9 @@ namespace spqrel_navigation {
 
     void stopRobot();
     void applyVelocities();
+
+    void start();
+    void stop();
     
   protected:
 
@@ -46,6 +51,7 @@ namespace spqrel_navigation {
     void subscribeMap();
     void subscribeCancel();
     void subscribeReset();
+    void stopSubscribers();
 
     //! Callbacks
     void laserWithPoseCallback();
@@ -54,11 +60,20 @@ namespace spqrel_navigation {
     void resetCallback();
 
     //! Publishers
+    void startCmdVelPublisher(){};
+    void startPathPublisher(){};
+    void startResultPublisher(){};
     void publishPath();
-    //void publishState() = 0;
-    //void publishResult(PlannerResult result) = 0;
-    //void publishExecutionStatus() = 0;
+    virtual void publishState(){};
+    void publishResult(PlannerResult result);
+    virtual void publishExecutionStatus(){};
+    virtual void stopPublishers(){};
 
+    //! Execution
+    int _cycle_time_ms; 
+    std::atomic<bool> _stop_thread;
+    std::thread _running_thread;
+    void run();
     
   };
 

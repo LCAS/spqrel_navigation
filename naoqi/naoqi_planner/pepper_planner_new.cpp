@@ -63,12 +63,16 @@ int main(int argc, char **argv){
   ////////////
 
   
-  NAOqiPlanner* planner = new NAOqiPlanner(session);
+  NAOqiPlanner* naoqiplanner = new NAOqiPlanner(session);
 
-  planner->getParams(vm);
+  naoqiplanner->getParams(vm);
   //setting planner parameters
   //TODO: planner->setExternalCollisionProtectionDesired(vm["collision_protection_desired"].as<bool>());
 
+  // init the planner
+  naoqiplanner->init();
+
+  
   /* NEW: will be done in mapsubscriber
   //get map
   planner->readMap(mapname);
@@ -78,9 +82,10 @@ int main(int argc, char **argv){
   if (use_gui)
     planner->initGUI();
   */
-  
-  planner->subscribeServices();
+
+
+  naoqiplanner->start();
   app.run();
-  planner->unsubscribeServices();
+  naoqiplanner->stop();
   
 }

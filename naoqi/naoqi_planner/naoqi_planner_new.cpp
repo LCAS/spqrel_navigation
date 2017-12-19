@@ -14,13 +14,22 @@ namespace spqrel_navigation {
     _motion_service = _session->service("ALMotion");
 
     _usable_range = 2.0;
+
+    // Adding blind zones for Pepper's laser
+    _dyn_map.clearPoints();
+    _dyn_map.setTimeThreshold(30); //seconds
+    _dyn_map.addBlindZone(30*M_PI/180, 60*M_PI/180);
+    _dyn_map.addBlindZone(-30*M_PI/180, -60*M_PI/180);
+
+    _cycle_time_ms = 200;
+    
   }
 
 
   void NAOqiPlanner::getParams(boost::program_options::variables_map& vm){
-   
-    bool use_gui = vm["use_gui"].as<bool>();
-    useGUI(use_gui);
+
+    if (vm.count("use_gui"))
+      useGUI(vm["use_gui"].as<bool>());
 
     // --map option
     std::string mapname;
@@ -55,7 +64,7 @@ namespace spqrel_navigation {
       setRecoveryObstacleDistance(vm["recovery_obstacle_distance"].as<float>());    
     
     std::cerr << "SPQReL NAOqi Planner launched with params:"      << std::endl;
-    std::cerr << "  use_gui: "            << use_gui             << std::endl;
+    std::cerr << "  use_gui: "            << _use_gui             << std::endl;
     std::cerr << "  map: "                << _map_name             << std::endl;
     std::cerr << "  robot_radius: "       << robotRadius()       << std::endl;
     std::cerr << "  max_linear_vel: "     << maxLinearVel()      << std::endl;
@@ -95,19 +104,23 @@ namespace spqrel_navigation {
   
   void NAOqiPlanner::subscribeMap(){
     readMap(_map_name);
-
   }
   
   void NAOqiPlanner::subscribeCancel(){
     _subscriber_cancel = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Cancel");
     _signal_cancel_id = _subscriber_cancel.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::cancelCallback, this))));
-    
   }
   
   void NAOqiPlanner::subscribeReset(){
     _subscriber_reset = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Reset");
     _signal_reset_id = _subscriber_reset.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::resetCallback, this))));
+  }
 
+  void NAOqiPlanner::stopSubscribers(){
+    _subscriber_laserwpose.disconnect(_signal_laserwpose_id);
+    _subscriber_goal.disconnect(_signal_goal_id);
+    _subscriber_cancel.disconnect(_signal_cancel_id);
+    _subscriber_reset.disconnect(_signal_reset_id);
   }
 
   void NAOqiPlanner::laserWithPoseCallback(){
@@ -177,11 +190,57 @@ namespace spqrel_navigation {
       
       _memory_service.call<void>("insertData", "NAOqiPlanner/Path", path_vector);
     }
-
   }
 
-  
+  void NAOqiPlanner::publishResult(PlannerResult result){
+    switch (result){
+    case GoalReached:
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/Result", "GoalReached");
+      break;
 
+    case Aborted:
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/Result", "Aborted");
+      break;
+
+    }
+  }
+
+  void NAOqiPlanner::start(){
+    _stop_thread = false;
+    _running_thread = std::thread(&NAOqiPlanner::run, this);
+
+    std::cerr << "Planner Thread launched." << std::endl;
+  }
   
+  void NAOqiPlanner::run() {
+    while (!_stop_thread){
+      std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
+      laserWithPoseCallback();
+
+      std::chrono::steady_clock::time_point runOnce_time_start = std::chrono::steady_clock::now();
+
+      runOnce();
+      std::chrono::steady_clock::time_point runOnce_time_end = std::chrono::steady_clock::now();
+      int runOnce_cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(runOnce_time_end - runOnce_time_start).count();
+      std::cerr << "Cycle runOnce " << runOnce_cycle_ms << " milliseconds" << std::endl << std::endl;
+      std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
+      int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
+      std::cerr << "Cycle " << cycle_ms << " milliseconds" << std::endl << std::endl;
+      if (cycle_ms < _cycle_time_ms)
+        usleep((_cycle_time_ms-cycle_ms)*1e3);
+    }
+
+    std::cerr << "Planner Thread finished." << std::endl;
+  }
+
+
+  void NAOqiPlanner::stop(){
+    _stop_thread=true;
+    _running_thread.join();
+
+    stopSubscribers();
+    std::cerr << "Planner stopped." << std::endl;
+  }
+
 }
 

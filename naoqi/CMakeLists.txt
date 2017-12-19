@@ -92,6 +92,7 @@ qi_use_lib(srrg_planner2d_library
   srrg_path_map_library
   OPENCV2_CORE
   OPENCV2_HIGHGUI
+  BOOST
 )
 
 qi_stage_lib(srrg_planner2d_library)

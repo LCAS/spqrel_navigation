@@ -1,6 +1,5 @@
 #include "motion_controller.h"
 
-
 MotionController::MotionController(){
 
   _max_linear_acc = 1.0;
@@ -45,7 +44,9 @@ void MotionController::_movementGenerator(Eigen::Vector2f& F, float& v, float& w
     F.y() = sin(angleF) * _f;
   }
 
-  std::cerr << "Force: " << F.transpose() << std::endl;
+  if (MOTION_DEBUG)
+      std::cerr << "Force: " << F.transpose() << std::endl;
+
   v = (F.x() * _T + _prev_linear_vel) / (1 + 2 * _b * _T);
   w = (_k_i * _h * F.y() * _T + _prev_angular_vel) / (1 + 2 * _b * _k_i * _T);
 

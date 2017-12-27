@@ -112,7 +112,7 @@ namespace spqrel_navigation {
   }
 
   void ROSPlanner::applyVelocities(){
-    std::cerr << "Applying vels: " << velocities().transpose() << std::endl;
+    // std::cerr << "Applying vels: " << velocities().transpose() << std::endl;
     geometry_msgs::Twist vel;
     vel.linear.x = velocities().x();
     vel.angular.z = velocities().y();

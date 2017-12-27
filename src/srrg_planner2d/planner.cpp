@@ -401,7 +401,8 @@ namespace srrg_planner {
     distances2cost(_cost_image, _distance_image, _robot_radius, _safety_region, _min_cost, _max_cost);
 
     std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
-    std::cerr << "DMapCalculator: "
+    if (MOTION_DEBUG)
+        std::cerr << "DMapCalculator: "
 	      << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
 
     computePath(_cost_image, _path_map, _goal_pixel, _obstacle_path);
@@ -436,7 +437,8 @@ namespace srrg_planner {
 
     std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
     int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
-    std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
+    if (MOTION_DEBUG)
+        std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
  
   }
 

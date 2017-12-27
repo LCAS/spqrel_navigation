@@ -218,7 +218,7 @@ namespace srrg_localizer2d_ros{
  // 	      _set_pose, particleResetting(), (int) _particles.size(), 1000);
  //      std::string status_str(status);
  //      cv::putText(img, status_str, cv::Point(10, 10), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
-      cv::imshow("thin_localizer", img);
+      cv::imshow("srrg_localizer", img);
    }  
    _force_redisplay=false;
    

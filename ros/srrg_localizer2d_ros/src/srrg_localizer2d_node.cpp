@@ -8,7 +8,7 @@ using namespace srrg_localizer2d_ros;
 void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   double tmp;
 
-  cerr << "Thin Localizer Parameters: " << endl;
+  cerr << "SRRG Localizer Parameters: " << endl;
   int particles;
   private_nh.param("particles", particles, 2000);
   cerr << "[int] _particles: " << particles << endl;

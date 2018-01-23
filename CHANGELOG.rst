@@ -2,8 +2,8 @@
 Changelog for package spqrel_navigation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.0 (2018-01-23)
+------------------
 * removed debug prints; fixed parameter names
 * naoqi planner refactored first working tests
 * changed function name run()

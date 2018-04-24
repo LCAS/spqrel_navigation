@@ -35,7 +35,7 @@ namespace spqrel_navigation {
     std::string mapname;
     if (!vm.count("map")){ 
       std::cout << "No map provided. Exiting." << std::endl; 
-      return; 
+      exit(0); 
     }else {
       _map_name =  vm["map"].as<std::string>();
     }

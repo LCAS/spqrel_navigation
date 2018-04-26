@@ -161,12 +161,31 @@ namespace srrg_planner {
     _goal_image = Eigen::Vector3f(goal_image_xy.x(), goal_image_xy.y(), 0);
     //Transform from image to map_origin
     Eigen::Isometry2f goal_transform = v2t(_image_map_origin) * v2t(_goal_image);
-    _goal = t2v(goal_transform);
+
+    Eigen::Vector2f goal2f;
+    goal2f.x() = goal_transform.translation().x();
+    goal2f.y() = goal_transform.translation().y();
+
+    _mtx_display.unlock();
+
+    setGoalXY(goal2f);
+    std::cerr << "Setting goal: " << _goal_pixel.transpose() << std::endl;
+  }
+
+  void Planner::setGoalXY(const Eigen::Vector2f& goal){
+    //Set goal without angle
+    _mtx_display.lock();
+    _goal.x() = goal.x();
+    _goal.y() = goal.y();
+    _goal.z() = 0;
+
     _have_goal = true;
     _have_goal_with_angle = false;
-    std::cerr << "Setting goal: " << _goal_pixel.transpose() << std::endl;
+
     _mtx_display.unlock();
   }
+
+
 
   void Planner::setGoal(const Eigen::Vector3f& goal){
     // Goal in map coordinates

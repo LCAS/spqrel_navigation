@@ -73,6 +73,7 @@ namespace srrg_planner {
     void handleGUI();
       
     void setGoal(const Eigen::Vector3f& goal);
+    void setGoalXY(const Eigen::Vector2f& goal);
     void setRobotPose(const Eigen::Vector3f& robot_pose);
     void setLaserPoints(const Vector2fVector& laser_points);
 

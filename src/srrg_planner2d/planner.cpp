@@ -175,17 +175,20 @@ namespace srrg_planner {
   void Planner::setGoalXY(const Eigen::Vector2f& goal){
     //Set goal without angle
     _mtx_display.lock();
+    _have_goal = true;
+    _have_goal_with_angle = false;
+    //Goal given wrt map_origin
     _goal.x() = goal.x();
     _goal.y() = goal.y();
     _goal.z() = 0;
-
-    _have_goal = true;
-    _have_goal_with_angle = false;
+    //From map_origin to image
+    Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(_goal);
+    _goal_image = t2v(goal_transform); // image coordinates
+    //From image to pixels
+    _goal_pixel = world2grid(Eigen::Vector2f(_goal_image.x(), _goal_image.y()));  // pixel
 
     _mtx_display.unlock();
   }
-
-
 
   void Planner::setGoal(const Eigen::Vector3f& goal){
     // Goal in map coordinates

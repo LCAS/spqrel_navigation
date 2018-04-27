@@ -71,9 +71,9 @@ namespace naoqi_navigation_gui {
     float _cycle_time_ms;
 
     // subscribers and publishers
-    qi::AnyObject _subscriber_status;
-    qi::SignalLink _signal_status_id;
-    void onStatusChanged(qi::AnyValue value);
+    qi::AnyObject _subscriber_result;
+    qi::SignalLink _signal_result_id;
+    void onResult(qi::AnyValue value);
     qi::AnyObject _subscriber_collision_protection_enabled;
     qi::SignalLink _signal_collision_protection_enabled_id;
     void onExternalCollisionProtectionEnabled(qi::AnyValue value);

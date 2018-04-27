@@ -42,7 +42,6 @@ namespace naoqi_planner_gui {
       Eigen::Vector3f goal_image(goal_image_xy.x(), goal_image_xy.y(), 0);
       Eigen::Isometry2f goal_transform = v2t(n->_image_map_origin) * v2t(goal_image);
 
-      std::cerr << "Setting goal2f: " << goal_transform.translation().x() << " " << goal_transform.translation().y() << std::endl;
       FloatVector goal;
       goal.push_back(goal_transform.translation().x());
       goal.push_back(goal_transform.translation().y());

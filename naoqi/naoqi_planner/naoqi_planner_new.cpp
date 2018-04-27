@@ -22,7 +22,9 @@ namespace spqrel_navigation {
     _dyn_map.addBlindZone(-30*M_PI/180, -60*M_PI/180);
 
     _cycle_time_ms = 200;
-    
+
+    _collision_protection_desired = true;
+    _collision_protection_enabled = true;
   }
 
 
@@ -62,6 +64,9 @@ namespace spqrel_navigation {
       setRecoveryWaitingTime(vm["recovery_waiting_time"].as<int>());    
     if (vm.count("recovery_obstacle_distance"))
       setRecoveryObstacleDistance(vm["recovery_obstacle_distance"].as<float>());    
+
+    if (vm.count("collision_protection_desired"))
+      setExternalCollisionProtectionDesired(vm["collision_protection_desired"].as<bool>());
     
     std::cerr << "SPQReL NAOqi Planner launched with params:"      << std::endl;
     std::cerr << "  use_gui: "            << _use_gui             << std::endl;
@@ -76,14 +81,20 @@ namespace spqrel_navigation {
     std::cerr << "  goal_rotation_tolerance: "    << goalRotationTolerance()    << std::endl;
     std::cerr << "  recovery_waiting_time: "      << recoveryWaitingTime()      << std::endl;
     std::cerr << "  recovery_obstacle_distance: " << recoveryObstacleDistance() << std::endl;
+    std::cerr << "  collision_protection_desired: " <<  _collision_protection_desired << std::endl;
+					    
     std::cerr << std::endl;
   }
 
   void NAOqiPlanner::stopRobot() {
     _motion_service.call<void>("stopMove");
+    setExternalCollisionProtectionEnabled(true);
   }
 
   void NAOqiPlanner::applyVelocities(){
+    if (_collision_protection_desired != _collision_protection_enabled)
+      setExternalCollisionProtectionEnabled(_collision_protection_desired); 
+
     std::cerr << "Applying vels: " << velocities().transpose() << std::endl;
     _motion_service.call<void>("move", velocities().x(), 0, velocities().y());
   }
@@ -100,6 +111,8 @@ namespace spqrel_navigation {
     //subscribe to goal changes
     _subscriber_goal = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Goal");
     _signal_goal_id = _subscriber_goal.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::goalCallback, this, _1))));
+    _subscriber_goalxy = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/GoalXY");
+    _signal_goalxy_id = _subscriber_goalxy.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::goalCallbackXY, this, _1))));
   }
   
   void NAOqiPlanner::subscribeMap(){
@@ -115,12 +128,25 @@ namespace spqrel_navigation {
     _subscriber_reset = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Reset");
     _signal_reset_id = _subscriber_reset.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::resetCallback, this))));
   }
+  
+  void NAOqiPlanner::subscribeExternalCollisionProtectionDesired(){
+    _subscriber_externalcollisionprotectiondesired = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/ExternalCollisionProtectionDesired");
+    _signal_externalcollisionprotectiondesired_id = _subscriber_externalcollisionprotectiondesired.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::externalCollisionProtectionDesiredCallback, this, _1))));
+  }
 
+  void NAOqiPlanner::startSubscribers(){
+    Planner::startSubscribers();
+    std::cerr << "Starting subscribers NAOQI." << std::endl;
+
+    subscribeExternalCollisionProtectionDesired();
+  }
+  
   void NAOqiPlanner::stopSubscribers(){
     _subscriber_laserwpose.disconnect(_signal_laserwpose_id);
     _subscriber_goal.disconnect(_signal_goal_id);
     _subscriber_cancel.disconnect(_signal_cancel_id);
     _subscriber_reset.disconnect(_signal_reset_id);
+    _subscriber_externalcollisionprotectiondesired.disconnect(_signal_externalcollisionprotectiondesired_id);
   }
 
   void NAOqiPlanner::laserWithPoseCallback(){
@@ -132,7 +158,6 @@ namespace spqrel_navigation {
     Eigen::Vector3f robot_pose = srrg_core::fromFloatVector3f(robot_pose_floatvector);
     std::cerr << "Robot pose: " << robot_pose.transpose() << std::endl;
 
-
     Vector2fVector laser_points = getLaser(_memory_service, _usable_range);
 
     // Setting data for planner
@@ -141,7 +166,8 @@ namespace spqrel_navigation {
   }
   
   void NAOqiPlanner::goalCallback(qi::AnyValue value){
-
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> GOAL CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    
     srrg_core::FloatVector goal_vector = value.toList<float>();
     if (goal_vector.size() != 3){
       std::cerr << "not a valid goal" << std::endl;
@@ -158,6 +184,24 @@ namespace spqrel_navigation {
 	   new_goal.z());
     
   }
+
+  void NAOqiPlanner::goalCallbackXY(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> GOAL XY CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+
+    srrg_core::FloatVector goal_vector = value.toList<float>();
+    if (goal_vector.size() != 2){
+      std::cerr << "not a valid goal" << std::endl;
+      return;
+    }
+
+    Eigen::Vector2f new_goal(goal_vector[0], goal_vector[1]);
+    setGoalXY(new_goal);
+
+    std::cerr << "Setting goal[x,y] "
+	      << new_goal.x() << ", "
+	      << new_goal.y() << std::endl;
+    
+  }
   
   void NAOqiPlanner::cancelCallback(){
     std::cerr << "Goal cancelled!!!" << std::endl;
@@ -169,6 +213,10 @@ namespace spqrel_navigation {
     reset();
   }
 
+  void NAOqiPlanner::externalCollisionProtectionDesiredCallback(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> External Collision Protection Desired CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    _collision_protection_desired = value.as<bool>();
+  }
 
   void NAOqiPlanner::publishPath(){
     FloatVector path_vector;
@@ -177,7 +225,7 @@ namespace spqrel_navigation {
 
       for (size_t i = 0; i < _path.size(); i++){
 	Eigen::Vector2i point = _path[i];
-	
+
 	Eigen::Vector2f point_image_xy = grid2world(point);
 	Eigen::Vector3f point_image(point_image_xy.x(), point_image_xy.y(), 0);
 	Eigen::Isometry2f point_world_transform = v2t(_image_map_origin) * v2t(point_image);
@@ -241,6 +289,24 @@ namespace spqrel_navigation {
     stopSubscribers();
     std::cerr << "Planner stopped." << std::endl;
   }
+
+  void NAOqiPlanner::setExternalCollisionProtectionEnabled(bool collision_protection_enabled){
+    if (collision_protection_enabled == _collision_protection_enabled)
+      return;
+    if (collision_protection_enabled)
+      std::cerr << "Enabling Pepper self collision protection" << std::endl;
+    else
+      std::cerr << "Warning: disabling Pepper self collision protection" << std::endl;
+
+    try {
+      _motion_service.call<void>("setExternalCollisionProtectionEnabled", "Move", collision_protection_enabled);
+      _collision_protection_enabled = collision_protection_enabled;
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/ExternalCollisionProtectionEnabled",_collision_protection_enabled);
+    } catch (qi::FutureUserException e) {
+      std::cerr << e.what() << std::endl;
+    }
+  }
+
 
 }
 

@@ -40,24 +40,30 @@ namespace spqrel_navigation {
     //! Subscribers
     qi::AnyObject _subscriber_laserwpose;
     qi::SignalLink _signal_laserwpose_id;
-    qi::AnyObject _subscriber_goal;
-    qi::SignalLink _signal_goal_id;
+    qi::AnyObject _subscriber_goal, _subscriber_goalxy;
+    qi::SignalLink _signal_goal_id, _signal_goalxy_id;
     qi::AnyObject _subscriber_cancel;
     qi::SignalLink _signal_cancel_id;
     qi::AnyObject _subscriber_reset;
     qi::SignalLink _signal_reset_id;
+    qi::AnyObject _subscriber_externalcollisionprotectiondesired;
+    qi::SignalLink _signal_externalcollisionprotectiondesired_id;
     void subscribeLaserWithPose();
     void subscribeGoal();
     void subscribeMap();
     void subscribeCancel();
     void subscribeReset();
+    void subscribeExternalCollisionProtectionDesired();
+    void startSubscribers();
     void stopSubscribers();
 
     //! Callbacks
     void laserWithPoseCallback();
     void goalCallback(qi::AnyValue value);
+    void goalCallbackXY(qi::AnyValue value);
     void cancelCallback();
     void resetCallback();
+    void externalCollisionProtectionDesiredCallback(qi::AnyValue value);
 
     //! Publishers
     void startCmdVelPublisher(){};
@@ -74,6 +80,12 @@ namespace spqrel_navigation {
     std::atomic<bool> _stop_thread;
     std::thread _running_thread;
     void run();
+
+    //! Pepper self protection management
+    bool _collision_protection_desired;
+    bool _collision_protection_enabled;
+    inline void setExternalCollisionProtectionDesired(bool collision_protection_desired) {_collision_protection_desired = collision_protection_desired;};
+    void setExternalCollisionProtectionEnabled(bool collision_protection_enabled);
     
   };
 

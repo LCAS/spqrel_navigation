@@ -91,6 +91,7 @@ namespace naoqi_navigation_gui {
 	FloatVector goal;
 	goal.push_back(goal_origin.translation().x());
 	goal.push_back(goal_origin.translation().y());
+	goal.push_back(0);
 	qi::AnyValue value = qi::AnyValue::from(goal);
 	n->_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Goal", value);
       }

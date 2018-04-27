@@ -38,22 +38,24 @@ namespace naoqi_planner_gui {
       n->_have_goal = true;
       std::cerr << "Setting goal: " << n->_goal.transpose() << std::endl;
 
-      Eigen::Vector2f goalf = n->grid2world(n->_goal);
-      Eigen::Vector3f vgoal(goalf.x(), goalf.y(), 0);
-      Eigen::Isometry2f goal_origin = v2t(n->_image_map_origin)*v2t(vgoal);
-      
+      Eigen::Vector2f goal_image_xy = n->grid2world(n->_goal);
+      Eigen::Vector3f goal_image(goal_image_xy.x(), goal_image_xy.y(), 0);
+      Eigen::Isometry2f goal_transform = v2t(n->_image_map_origin) * v2t(goal_image);
+
+      std::cerr << "Setting goal2f: " << goal_transform.translation().x() << " " << goal_transform.translation().y() << std::endl;
       FloatVector goal;
-      goal.push_back(goal_origin.translation().x());
-      goal.push_back(goal_origin.translation().y());
+      goal.push_back(goal_transform.translation().x());
+      goal.push_back(goal_transform.translation().y());
       qi::AnyValue value = qi::AnyValue::from(goal);
-      n->_memory_service.call<void>("raiseEvent", "NAOqiPlanner/Goal", value);
+      n->_memory_service.call<void>("raiseEvent", "NAOqiPlanner/GoalXY", value);
     }
   }
 
-  void NAOqiPlannerGUI::onStatusChanged(qi::AnyValue value){
-    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> STATUS CHANGED CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
-    std::string state = value.asString();
-    if (state == "GoalReached" || state == "WaitingForGoal"){
+  void NAOqiPlannerGUI::onResult(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> RESULT CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    std::string result = value.asString();
+    if (result == "GoalReached" || result == "Aborted"){
+      std::cerr << result << std::endl << std::endl;
       _have_goal = false;
       _path.clear();
     }
@@ -73,9 +75,9 @@ namespace naoqi_planner_gui {
   void NAOqiPlannerGUI::subscribeServices(){
     _memory_service = _session->service("ALMemory");
 
-    //subscribe to status changes
-    _subscriber_status = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Status");
-    _signal_status_id = _subscriber_status.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlannerGUI::onStatusChanged, this, _1))));
+    //subscribe to result
+    _subscriber_result = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/Result");
+    _signal_result_id = _subscriber_result.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlannerGUI::onResult, this, _1))));
 
     //subscribe to collision protection changes
     _subscriber_collision_protection_enabled = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/ExternalCollisionProtectionEnabled");
@@ -87,7 +89,7 @@ namespace naoqi_planner_gui {
   }
 
   void NAOqiPlannerGUI::unsubscribeServices(){
-    _subscriber_status.disconnect(_signal_status_id);
+    _subscriber_result.disconnect(_signal_result_id);
     _stop_thread=true;
     _servicesMonitorThread.join();
   }
@@ -118,10 +120,15 @@ namespace naoqi_planner_gui {
       try{
 	//get path
 	value = _memory_service.call<qi::AnyValue>("getData", "NAOqiPlanner/Path");
-	srrg_core::IntVector path_vector = value.toList<int>();
-	_path.resize(path_vector.size()/2);
-	for (size_t i=0; i<_path.size(); i++)
-	  _path[i] = Eigen::Vector2i(path_vector[2*i], path_vector[2*i+1]);
+	srrg_core::FloatVector path_vector = value.toList<float>();
+	_path.resize(path_vector.size()/3);
+	for (size_t i=0; i<_path.size(); i++){
+	  Eigen::Vector3f point_world = Eigen::Vector3f(path_vector[3*i], path_vector[3*i+1], path_vector[3*i+2]);
+	  Eigen::Isometry2f point_world_transform = _image_map_origin_transform_inverse*v2t(point_world);
+	  Eigen::Vector3f point_image = t2v(point_world_transform);
+	  
+	  _path[i] = world2grid(Eigen::Vector2f(point_image.x(), point_image.y()));
+	}
       } catch (qi::FutureUserException) {
 	std::cerr << "NAOqiPlanner/Path not available" << std::endl;
       }
@@ -251,10 +258,11 @@ namespace naoqi_planner_gui {
       std::cerr << "Resetting" << std::endl;
       _have_goal = false;
       _memory_service.call<void>("raiseEvent", "NAOqiPlanner/Reset", true);
+      break;
     case 'o':
       _collision_protection_desired = ! _collision_protection_desired;
       std::cerr << "External Collision Protection Desired: " << _collision_protection_desired << std::endl;
-      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/CollisionProtectionDesired", _collision_protection_desired);
+      _memory_service.call<void>("raiseEvent", "NAOqiPlanner/ExternalCollisionProtectionDesired", _collision_protection_desired);
     default:;
     }
   }

@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     ("goal_rotation_tolerance", po::value<float>(), "goal_rotation_tolerance.")
     ("recovery_waiting_time", po::value<int>(), "recovery_waiting_time.")
     ("recovery_obstacle_distance", po::value<float>(), "recovery_obstacle_distance.")    
-    //TODO: ("collision_protection_desired", po::value<bool>()->default_value(true), "Enable/Disable self collision obstacle avoidance.")
+    ("collision_protection_desired", po::value<bool>()->default_value(true), "Enable/Disable Pepper self collision obstacle avoidance.")
     ;
   
   po::variables_map vm;
@@ -70,14 +70,12 @@ int main(int argc, char **argv)
 
   qi::SessionPtr session = app.session();
   ////////////
-
   
   NAOqiPlanner* naoqiplanner = new NAOqiPlanner(session);
 
-  naoqiplanner->getParams(vm);
   //setting planner parameters
-  //TODO: planner->setExternalCollisionProtectionDesired(vm["collision_protection_desired"].as<bool>());
-
+  naoqiplanner->getParams(vm);
+ 
   // init the planner
   naoqiplanner->init();
 

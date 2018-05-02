@@ -134,11 +134,17 @@ namespace spqrel_navigation {
     _signal_externalcollisionprotectiondesired_id = _subscriber_externalcollisionprotectiondesired.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::externalCollisionProtectionDesiredCallback, this, _1))));
   }
 
+  void NAOqiPlanner::subscribeMoveEnabled(){
+    _subscriber_move_enabled = _memory_service.call<qi::AnyObject>("subscriber", "NAOqiPlanner/MoveEnabled");
+    _signal_move_enabled_id = _subscriber_move_enabled.connect("signal", (boost::function<void(qi::AnyValue)>(boost::bind(&NAOqiPlanner::moveEnabledCallback, this, _1))));
+  }
+  
   void NAOqiPlanner::startSubscribers(){
     Planner::startSubscribers();
     std::cerr << "Starting subscribers NAOQI." << std::endl;
 
     subscribeExternalCollisionProtectionDesired();
+    subscribeMoveEnabled();
   }
   
   void NAOqiPlanner::stopSubscribers(){
@@ -177,11 +183,10 @@ namespace spqrel_navigation {
     Eigen::Vector3f new_goal(goal_vector[0], goal_vector[1], goal_vector[2]);
     setGoal(new_goal);
 
-    printf("Setting goal (%.6f): %.3f %.3f %.3f",
-	   std::chrono::steady_clock::now(),
-	   new_goal.x(),
-	   new_goal.y(),
-	   new_goal.z());
+    std::cerr << "Setting goal[x,y,theta] "
+	      << new_goal.x() << ", "
+	      << new_goal.y() << ", "
+	      << new_goal.z() << std::endl;
     
   }
 
@@ -216,6 +221,15 @@ namespace spqrel_navigation {
   void NAOqiPlanner::externalCollisionProtectionDesiredCallback(qi::AnyValue value){
     std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> External Collision Protection Desired CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     _collision_protection_desired = value.as<bool>();
+  }
+
+  void NAOqiPlanner::moveEnabledCallback(qi::AnyValue value){
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> Move Enabled CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
+    setMoveEnabled(value.as<bool>());
+    if (moveEnabled())
+      std::cerr << "Move enabled" << std::endl;
+    else 
+      std::cerr << "Move disabled" << std::endl;
   }
 
   void NAOqiPlanner::publishPath(){

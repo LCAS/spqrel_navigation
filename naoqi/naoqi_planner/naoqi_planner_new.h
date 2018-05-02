@@ -48,12 +48,15 @@ namespace spqrel_navigation {
     qi::SignalLink _signal_reset_id;
     qi::AnyObject _subscriber_externalcollisionprotectiondesired;
     qi::SignalLink _signal_externalcollisionprotectiondesired_id;
+    qi::AnyObject _subscriber_move_enabled;
+    qi::SignalLink _signal_move_enabled_id;
     void subscribeLaserWithPose();
     void subscribeGoal();
     void subscribeMap();
     void subscribeCancel();
     void subscribeReset();
     void subscribeExternalCollisionProtectionDesired();
+    void subscribeMoveEnabled();
     void startSubscribers();
     void stopSubscribers();
 
@@ -64,6 +67,7 @@ namespace spqrel_navigation {
     void cancelCallback();
     void resetCallback();
     void externalCollisionProtectionDesiredCallback(qi::AnyValue value);
+    void moveEnabledCallback(qi::AnyValue value);
 
     //! Publishers
     void startCmdVelPublisher(){};

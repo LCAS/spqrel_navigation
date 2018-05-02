@@ -176,9 +176,12 @@ namespace srrg_planner {
     DynamicMap _dyn_map;
 
     //! Motion generator
+    bool _move_enabled;
     Eigen::Vector2f _velocities;
     MotionController _motion_controller;
     bool computeControlToWaypoint(bool goal_with_angle);
+    void setMoveEnabled(bool move_enabled);
+    inline bool moveEnabled() const {return _move_enabled;}
 
     //! Virtual functions to be implemented for the specific environment (e.g., ROS, NAOqi...) 
     //! Subscribers

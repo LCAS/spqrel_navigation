@@ -23,6 +23,9 @@ namespace srrg_planner {
     _laser_points.clear();
     _dyn_map.clearPoints();
 
+    _move_enabled = true;
+    _velocities = Eigen::Vector2f::Zero();
+    
     _on_recovery_time = false;
     _recovery_waiting_time = 10;
     _recovery_obstacle_distance = 1.0;
@@ -453,8 +456,12 @@ namespace srrg_planner {
       if (goal_reached){
 	publishResult(GoalReached);
 	cancelGoal();
-      }else
-	applyVelocities();
+      } else {
+	if (moveEnabled())
+	  applyVelocities();
+	else 
+	  _motion_controller.resetVelocities();
+      }
     }
 
     std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
@@ -520,6 +527,12 @@ namespace srrg_planner {
   
     return goal_reached;
     
+  }
+
+  void Planner::setMoveEnabled(bool move_enabled){
+    _move_enabled = move_enabled;
+    if (!_move_enabled)
+      stopRobot(); //Stop robot as soon as movement is disabled
   }
 
   void Planner::startSubscribers(){

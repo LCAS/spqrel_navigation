@@ -71,6 +71,8 @@ namespace srrg_planner {
     inline void useGUI(bool use_gui){_use_gui = use_gui;}
     void initGUI();
     void handleGUI();
+    inline void setVerbose(bool verbose){_verbose = verbose;}
+    inline bool verbose() {return _verbose;}
       
     void setGoal(const Eigen::Vector3f& goal);
     void setGoalXY(const Eigen::Vector2f& goal);
@@ -156,6 +158,7 @@ namespace srrg_planner {
     static void onMouse( int event, int x, int y, int flags, void* v);
     void handleGUIInput();
     void handleGUIDisplay();
+    bool _verbose;
 
     //! Goal managing
     void setGoalGUI(Eigen::Vector2i goal);

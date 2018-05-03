@@ -9,7 +9,8 @@ namespace srrg_planner {
 
     _use_gui = false;
     _what_to_show = Map;
-
+    _verbose = false;
+    
     _have_goal = false;
     _have_goal_with_angle = false;
     _goal = Eigen::Vector3f(0,0,0);
@@ -427,7 +428,7 @@ namespace srrg_planner {
     distances2cost(_cost_image, _distance_image, _robot_radius, _safety_region, _min_cost, _max_cost);
 
     std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
-    if (MOTION_DEBUG)
+    if (verbose())
         std::cerr << "DMapCalculator: "
 	      << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
 
@@ -467,13 +468,13 @@ namespace srrg_planner {
 
     std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
     int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
-    if (MOTION_DEBUG)
+    if (verbose())
         std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
  
   }
 
   void Planner::computePath(FloatImage& cost_map, PathMap& path_map, Eigen::Vector2i& goal, Vector2iVector &path){
-    std::chrono::steady_clock::time_point time_path_start = std::chrono::steady_clock::now();
+
     _path_calculator.setMaxCost(_max_cost-1);
     _path_calculator.setCostMap(cost_map);
     _path_calculator.setOutputPathMap(path_map);
@@ -481,7 +482,7 @@ namespace srrg_planner {
     goals.push_back(goal);
     _path_calculator.goals() = goals;
     _path_calculator.compute();
-    std::chrono::steady_clock::time_point time_path_end = std::chrono::steady_clock::now();
+
     path.clear();
     // Filling path
     PathMapCell* current=&path_map(_robot_pose_pixel.x(), _robot_pose_pixel.y());

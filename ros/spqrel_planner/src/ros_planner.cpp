@@ -36,7 +36,10 @@ namespace spqrel_navigation {
     bool use_gui;
     if (private_nh.getParam("use_gui", use_gui))
       useGUI(use_gui);
-
+    bool verbose;
+    if (private_nh.getParam("verbose", verbose))
+      setVerbose(verbose);
+    
     private_nh.getParam("laser_topic", _laser_topic);
     private_nh.getParam("goal_topic", _goal_topic);
     private_nh.getParam("map_topic", _map_topic);
@@ -81,6 +84,7 @@ namespace spqrel_navigation {
     
     std::cerr << "SPQReL ROS Planner launched with params:"      << std::endl;
     std::cerr << "  use_gui: "            << use_gui             << std::endl;
+    std::cerr << "  verbose: "            << _verbose            << std::endl;
     std::cerr << "  laser_topic: "        << _laser_topic        << std::endl;
     std::cerr << "  goal_topic: "         << _goal_topic         << std::endl;
     std::cerr << "  map_topic: "          << _map_topic          << std::endl;

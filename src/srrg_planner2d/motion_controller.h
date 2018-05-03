@@ -13,9 +13,6 @@
 #include <Eigen/Core>
 #include <iostream>
 
-// debug prints
-#define MOTION_DEBUG 0
-
 class MotionController {
  public:
   MotionController();

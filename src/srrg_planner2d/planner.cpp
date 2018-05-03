@@ -275,10 +275,10 @@ namespace srrg_planner {
       std::cerr << "Switching view to cost map" << std::endl;
       _what_to_show = Cost;
       break;
-      /*case 'p':    
-      _move_enabled = !_move_enabled;
+    case 'p':
+      setMoveEnabled(!_move_enabled);
       std::cerr << "Move enabled: " << _move_enabled << std::endl;
-      break;*/
+      break;
     case 'r':
       std::cerr << "Resetting" << std::endl;
       reset();
@@ -379,10 +379,11 @@ namespace srrg_planner {
       cv::circle(shown_image, cv::Point(c, r), 3, cv::Scalar(1.0f));
     }
 
+    
+    char buf[1024];
+    sprintf(buf, " MoveEnabled: %d", _move_enabled);
+    cv::putText(shown_image, buf, cv::Point(20, 50), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
     /*
-      char buf[1024];
-      sprintf(buf, " MoveEnabled: %d", _move_enabled);
-      cv::putText(shown_image, buf, cv::Point(20, 50), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
       sprintf(buf, " CollisionProtectionDesired: %d", _collision_protection_desired);
       cv::putText(shown_image, buf, cv::Point(20, 50+(int)shown_image.cols*0.03), cv::FONT_HERSHEY_SIMPLEX, shown_image.rows*1e-3, cv::Scalar(1.0f), 1);
       sprintf(buf, " ExternalCollisionProtectionEnabled: %d", _collision_protection_enabled);

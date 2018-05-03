@@ -31,7 +31,7 @@ namespace naoqi_navigation_gui {
     std::cerr << "GUI initialized" << std::endl;
   }
 
-  void NAOqiNavigationGUI::onMouse( int event, int x, int y, int, void* v){
+  void NAOqiNavigationGUI::onMouse( int event, int x, int y, int flags, void* v){
     NAOqiNavigationGUI* n=reinterpret_cast<NAOqiNavigationGUI*>(v);
     if (n->_set_pose) {
       if( event == cv::EVENT_LBUTTONDOWN ) {
@@ -78,7 +78,7 @@ namespace naoqi_navigation_gui {
 
       
     } else {
-      if( event == cv::EVENT_LBUTTONDOWN ) {
+      if( event == cv::EVENT_LBUTTONDOWN && ((flags & cv::EVENT_FLAG_CTRLKEY) != 0)) {
 	std::cerr << "Left Click!" << std::endl;
 	n->_goal = Eigen::Vector2i(y,x);
 	n->_have_goal = true;

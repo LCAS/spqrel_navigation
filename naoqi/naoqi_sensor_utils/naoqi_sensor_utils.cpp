@@ -92,4 +92,31 @@ namespace naoqi_sensor_utils {
     return endpoints;
   }
 
+  Vector2fVector getLaserFromDepth(qi::AnyObject memory_service){
+    qi::AnyValue ranges_readings = memory_service.call<qi::AnyValue>("getData", "NAOqiDepth2Laser/Ranges");
+    std::vector<float> ranges = ranges_readings.toList<float>();
+    qi::AnyValue nranges_reading = memory_service.call<qi::AnyValue>("getData", "NAOqiDepth2Laser/NumRanges");
+    int nranges = nranges_reading.toInt();
+    qi::AnyValue min_angle_reading = memory_service.call<qi::AnyValue>("getData", "NAOqiDepth2Laser/MinAngle");
+    float angle_min = min_angle_reading.toFloat();
+    qi::AnyValue max_angle_reading = memory_service.call<qi::AnyValue>("getData", "NAOqiDepth2Laser/MaxAngle");
+    float angle_max = max_angle_reading.toFloat();
+    float angle_inc = (angle_max - angle_min)/nranges;
+    qi::AnyValue max_range_reading = memory_service.call<qi::AnyValue>("getData", "NAOqiDepth2Laser/MaxRange");
+    float range_max = max_range_reading.toFloat();
+    
+    Vector2fVector points(nranges);
+    for (size_t i = 0; i < points.size(); i++) {
+      if (ranges[i] < range_max) {
+	float x, y;
+	x = ranges[i]*cos(angle_min + i*angle_inc);
+	y = ranges[i]*sin(angle_min + i*angle_inc);
+	Eigen::Vector2f p(x, y);
+	points[i] = p;
+      }
+    }
+    return points;    
+  }
+  
+
 }

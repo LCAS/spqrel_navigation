@@ -27,6 +27,9 @@ namespace naoqi_navigation_gui {
     void subscribeServices();
     void unsubscribeServices();
 
+    inline bool useD2L() {return _use_d2l;}
+    inline void setUseD2L(bool use_d2l) {_use_d2l = use_d2l;}
+    
   protected:
     inline Eigen::Vector2i world2grid(const Eigen::Vector2f p) {
       return Eigen::Vector2i(p.x()*_map_inverse_resolution, p.y()*_map_inverse_resolution);
@@ -43,7 +46,7 @@ namespace naoqi_navigation_gui {
     IntImage _indices_image;
     
     Vector2fVector _laser_points;
-    float _usable_range;
+    bool _use_d2l;
     bool _move_enabled;
     bool _collision_protection_enabled, _collision_protection_desired;
     

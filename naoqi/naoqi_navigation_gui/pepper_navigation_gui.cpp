@@ -21,6 +21,7 @@ int main(int argc, char **argv){
     ("pip", po::value<std::string>()->default_value(pepper_ip), "Robot IP address. Set IP here or for convenience, define PEPPER_IP as environment variable. On robot or Local Naoqi: use '127.0.0.1'.")
     ("pport", po::value<int>()->default_value(9559), "Naoqi port number.")
     ("map", po::value<std::string>(), "Map used for localization in YAML format with extension.")
+    ("use_d2l", po::value<bool>()->default_value(false), "use depth2laser data.")
     ;
   
   po::variables_map vm;
@@ -41,7 +42,9 @@ int main(int argc, char **argv){
   }else {
     mapname =  vm["map"].as<std::string>();
   }
-  
+
+  bool use_d2l = vm["use_d2l"].as<bool>();
+     
   ////////////
   //NAOqi session initialization
   const std::string pip = vm["pip"].as<std::string>();
@@ -73,6 +76,7 @@ int main(int argc, char **argv){
   navigation_gui->readMap(mapname);
 
   navigation_gui->initGUI();
+  navigation_gui->setUseD2L(use_d2l);
   
   navigation_gui->subscribeServices();
   app.run();

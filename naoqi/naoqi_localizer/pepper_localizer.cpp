@@ -25,6 +25,8 @@ void startLocalizerFromParameters(NAOqiLocalizer* localizer, po::variables_map& 
   std::cerr << "dynamic_restart: " << dynamic_restart << std::endl;
   bool use_gui = vm["use_gui"].as<bool>();
   std::cerr << "use_gui: " << use_gui << std::endl;
+  bool use_d2l = vm["use_d2l"].as<bool>();
+  std::cerr << "use_d2l: " << use_d2l << std::endl;
 
   double initial_pose_x = vm["initial_pose_x"].as<double>();
   std::cerr << "initial_pose_x: " << initial_pose_x << std::endl;
@@ -36,6 +38,7 @@ void startLocalizerFromParameters(NAOqiLocalizer* localizer, po::variables_map& 
   localizer->init(particles, distance_threshold, 0.2, min_weight);
   if (use_gui)
     localizer->initGUI();
+  localizer->setUseD2L(use_d2l);
   localizer->setParticleResetting(dynamic_restart);
   localizer->setInitialPose(initial_pose_x,initial_pose_y,initial_pose_theta);
 }
@@ -59,6 +62,7 @@ int main(int argc, char **argv)
     ("distance_threshold", po::value<double>()->default_value(1.0), "distance_threshold.")
     ("dynamic_restart", po::value<bool>()->default_value(false), "dynamic_restart.")
     ("use_gui", po::value<bool>()->default_value(false), "use_gui.")
+    ("use_d2l", po::value<bool>()->default_value(false), "use depth2laser data.")
     ("initial_pose_x", po::value<double>()->default_value(0.0), "initial_pose_x.")
     ("initial_pose_y", po::value<double>()->default_value(0.0), "initial_pose_y.")
     ("initial_pose_theta", po::value<double>()->default_value(0.0), "initial_pose_theta.")

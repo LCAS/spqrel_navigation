@@ -19,6 +19,7 @@ namespace naoqi_localizer {
     _force_redisplay=false;
     _set_pose = false;
     _use_gui=false;
+    _use_d2l=false;
     _map_origin.setZero();
     _image_map_origin.setZero();
 
@@ -70,7 +71,12 @@ namespace naoqi_localizer {
     
       _old_odom_pose=odom_pose;
 
-      Vector2fVector endpoints = getLaser(_memory_service);
+      Vector2fVector endpoints;
+      if (!useD2L())
+	endpoints = getLaser(_memory_service); //Pepper's Laser points
+      else
+	endpoints = getLaserFromDepth(_memory_service); //Depth2Laser points
+      
       bool updated = update(endpoints);
       computeStats();
 

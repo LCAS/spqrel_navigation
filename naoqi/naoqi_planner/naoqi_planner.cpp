@@ -14,7 +14,8 @@ namespace spqrel_navigation {
     _motion_service = _session->service("ALMotion");
 
     _usable_range = 2.0;
-
+    _use_d2l = false;
+    
     // Adding blind zones for Pepper's laser
     _dyn_map.clearPoints();
     _dyn_map.setTimeThreshold(30); //seconds
@@ -33,7 +34,10 @@ namespace spqrel_navigation {
     if (vm.count("use_gui"))
       useGUI(vm["use_gui"].as<bool>());
 
-    // --map option
+     bool use_d2l = vm["use_d2l"].as<bool>();
+     setUseD2L(use_d2l);
+     
+     // --map option
     std::string mapname;
     if (!vm.count("map")){ 
       std::cout << "No map provided. Exiting." << std::endl; 
@@ -70,6 +74,7 @@ namespace spqrel_navigation {
     
     std::cerr << "SPQReL NAOqi Planner launched with params:"      << std::endl;
     std::cerr << "  use_gui: "            << _use_gui             << std::endl;
+    std::cerr << "  use_d2l: "            << _use_d2l             << std::endl;
     std::cerr << "  map: "                << _map_name             << std::endl;
     std::cerr << "  robot_radius: "       << robotRadius()       << std::endl;
     std::cerr << "  max_linear_vel: "     << maxLinearVel()      << std::endl;
@@ -164,7 +169,11 @@ namespace spqrel_navigation {
     Eigen::Vector3f robot_pose = srrg_core::fromFloatVector3f(robot_pose_floatvector);
     std::cerr << "Robot pose: " << robot_pose.transpose() << std::endl;
 
-    Vector2fVector laser_points = getLaser(_memory_service, _usable_range);
+    Vector2fVector laser_points;
+    if (!useD2L())
+      laser_points = getLaser(_memory_service, _usable_range); //Pepper's Laser points
+    else
+      laser_points = getLaserFromDepth(_memory_service); //Depth2Laser points
 
     // Setting data for planner
     setRobotPose(robot_pose);

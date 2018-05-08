@@ -12,7 +12,7 @@ namespace naoqi_navigation_gui {
 
     _cycle_time_ms = 200;
 
-    _usable_range = 2.0;
+    _use_d2l = false;
     
     _have_goal = false;
     _goal = Eigen::Vector2i(0,0);
@@ -185,8 +185,12 @@ namespace naoqi_navigation_gui {
 	std::cerr << "NAOqiLocalizer/RobotPose not available" << std::endl;
       }
       //get laser
-      _laser_points = getLaser(_memory_service);
-
+      //_laser_points = getLaser(_memory_service);
+      if (!useD2L())
+	_laser_points = getLaser(_memory_service); //Pepper's Laser points
+      else
+	_laser_points = getLaserFromDepth(_memory_service); //Depth2Laser points
+    
       try{
 	//get path
 	value = _memory_service.call<qi::AnyValue>("getData", "NAOqiPlanner/Path");

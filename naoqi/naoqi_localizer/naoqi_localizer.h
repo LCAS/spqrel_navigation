@@ -27,7 +27,10 @@ namespace naoqi_localizer {
   
     //! call this after construction if you want to have a gui
     void initGUI();
-  
+
+    inline bool useD2L() {return _use_d2l;}
+    inline void setUseD2L(bool use_d2l) {_use_d2l = use_d2l;}
+    
     //! sets/gets the maximum range of a laser, ranges further than this are ignored
     inline float forcedMaxRange() const {return _forced_max_range;}
     inline void setForcedMaxRange( float mr) {_forced_max_range=mr;}
@@ -72,6 +75,9 @@ namespace naoqi_localizer {
     //! @param msg: the laser message to be processed
     srrg_core::Vector2fVector rawPointsToRobotFrame(srrg_core::Vector2fVector& rawPoints);
 
+    //! use depth2laser data
+    bool _use_d2l;
+    
     /*
     //! publishes the particles
     void publishParticles();

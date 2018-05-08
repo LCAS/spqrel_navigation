@@ -26,6 +26,9 @@ namespace spqrel_navigation {
 
     void start();
     void stop();
+
+    inline bool useD2L() {return _use_d2l;}
+    inline void setUseD2L(bool use_d2l) {_use_d2l = use_d2l;}
     
   protected:
 
@@ -36,6 +39,7 @@ namespace spqrel_navigation {
     std::string _map_name;
 
     float _usable_range;
+    bool _use_d2l; //Use Depth2Laser data
 
     //! Subscribers
     qi::AnyObject _subscriber_laserwpose;

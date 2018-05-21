@@ -92,6 +92,7 @@ namespace spqrel_navigation {
   }
 
   void NAOqiPlanner::stopRobot() {
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> STOPPING ROBOT <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     _motion_service.call<void>("stopMove");
     setExternalCollisionProtectionEnabled(true);
   }
@@ -218,12 +219,12 @@ namespace spqrel_navigation {
   }
   
   void NAOqiPlanner::cancelCallback(){
-    std::cerr << "Goal cancelled!!!" << std::endl;
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> Cancel CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     cancelGoal();
   }
   
   void NAOqiPlanner::resetCallback(){
-    std::cerr << "Calling reset!!!" << std::endl;
+    std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> Reset CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     reset();
   }
 

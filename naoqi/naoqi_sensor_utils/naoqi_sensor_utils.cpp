@@ -106,15 +106,19 @@ namespace naoqi_sensor_utils {
     float range_max = max_range_reading.toFloat();
     
     Vector2fVector points(nranges);
+    size_t num_valid_points = 0;
     for (size_t i = 0; i < points.size(); i++) {
       if (ranges[i] < range_max) {
 	float x, y;
 	x = ranges[i]*cos(angle_min + i*angle_inc);
 	y = ranges[i]*sin(angle_min + i*angle_inc);
 	Eigen::Vector2f p(x, y);
-	points[i] = p;
+	points[num_valid_points] = p;
+	num_valid_points++;
       }
     }
+    points.resize(num_valid_points);
+    
     return points;    
   }
   

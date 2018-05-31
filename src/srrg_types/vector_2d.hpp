@@ -6,6 +6,7 @@ namespace srrg_core {
 	
   template <typename CellType_, typename AllocatorType_>
   Vector2D<CellType_, AllocatorType_>::Vector2D(std::size_t rows_, std::size_t cols_) {
+    _cols=0;
     resize(rows_, cols_);
   }
   

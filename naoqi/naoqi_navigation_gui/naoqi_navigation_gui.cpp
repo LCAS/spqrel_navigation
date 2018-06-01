@@ -110,14 +110,14 @@ namespace naoqi_navigation_gui {
   void NAOqiNavigationGUI::onGoal(qi::AnyValue value){
     std::cerr << ">>>>>>>>>>>>>>>>>>>>>>>>> GOAL CALLBACK <<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     srrg_core::FloatVector goal = value.toList<float>();
-    if (goal.size() != 2){
+    if (goal.size() != 3){
       std::cerr << "not a valid goal" << std::endl;
       return;
     }
 
     // we receive the goal in world coordinates [m]
 
-    Eigen::Vector3f vgoal(goal[0], goal[1], 0);
+    Eigen::Vector3f vgoal(goal[0], goal[1], goal[3]);
     std::cerr << "Setting goal [m]: " << vgoal.transpose() << std::endl;
     Eigen::Isometry2f goal_transform=_image_map_origin_transform_inverse*v2t(vgoal);
 

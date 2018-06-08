@@ -171,11 +171,12 @@ namespace spqrel_navigation {
     std::cerr << "Robot pose: " << robot_pose.transpose() << std::endl;
 
     Vector2fVector laser_points;
-    if (!useD2L())
-      laser_points = getLaser(_memory_service, _usable_range); //Pepper's Laser points
-    else
-      laser_points = getLaserFromDepth(_memory_service); //Depth2Laser points
-
+    laser_points = getLaser(_memory_service, _usable_range); //Pepper's Laser points
+    if (useD2L()) {
+      Vector2fVector laser_points_d2l = getLaserFromDepth(_memory_service); //Depth2Laser points
+      laser_points.insert(laser_points.end(), laser_points_d2l.begin(), laser_points_d2l.end()); 
+    }
+    
     // Setting data for planner
     setRobotPose(robot_pose);
     setLaserPoints(laser_points);

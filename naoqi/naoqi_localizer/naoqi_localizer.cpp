@@ -28,6 +28,13 @@ namespace naoqi_localizer {
     _laser_pose.setZero();
 
     _cycle_time_ms = 200;
+
+    Eigen::Matrix3f coeffs = Eigen::Matrix3f::Identity();
+    coeffs = 0.01*coeffs;
+    coeffs(1,1) = 0.0001;
+    
+    setNoiseCoeffs(coeffs);
+    
   }
 
   void NAOqiLocalizer::initGUI(){
@@ -72,10 +79,12 @@ namespace naoqi_localizer {
       _old_odom_pose=odom_pose;
 
       Vector2fVector endpoints;
-      if (!useD2L())
-	endpoints = getLaser(_memory_service); //Pepper's Laser points
-      else
-	endpoints = getLaserFromDepth(_memory_service); //Depth2Laser points
+      endpoints = getLaser(_memory_service); //Pepper's Laser points
+
+      if (useD2L()) {
+	Vector2fVector endpoints_d2l = getLaserFromDepth(_memory_service); //Depth2Laser points
+	endpoints.insert(endpoints.end(), endpoints_d2l.begin(), endpoints_d2l.end()); 
+      }
       
       bool updated = update(endpoints);
       computeStats();

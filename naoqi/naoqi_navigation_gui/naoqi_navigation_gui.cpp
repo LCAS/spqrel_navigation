@@ -21,6 +21,8 @@ namespace naoqi_navigation_gui {
     _move_enabled = true;
     _collision_protection_enabled = true; _collision_protection_desired = true;
 
+    _laser_points.clear();
+    _laser_points_d2l.clear();
     _set_pose = false;
     _path.clear();
   }
@@ -187,8 +189,7 @@ namespace naoqi_navigation_gui {
       //get laser
       _laser_points = getLaser(_memory_service);
       if (useD2L()) {
-	Vector2fVector laser_points_d2l = getLaserFromDepth(_memory_service); //Depth2Laser points
-	_laser_points.insert(_laser_points.end(), laser_points_d2l.begin(), laser_points_d2l.end());
+	_laser_points_d2l = getLaserFromDepth(_memory_service); //Depth2Laser points
       }
       
       try{
@@ -303,6 +304,13 @@ namespace naoqi_navigation_gui {
       int r = lp.x()*_map_inverse_resolution;
       int c = lp.y()*_map_inverse_resolution;
       cv::circle(shown_image, cv::Point(c, r), 3, cv::Scalar(200,200,0));
+    }
+
+    for (size_t i=0; i<_laser_points_d2l.size(); i++){
+      Eigen::Vector2f lp=v2t(_robot_pose)* _laser_points_d2l[i];
+      int r = lp.x()*_map_inverse_resolution;
+      int c = lp.y()*_map_inverse_resolution;
+      cv::circle(shown_image, cv::Point(c, r), 3, cv::Scalar(200,0,0));
     }
 
     char buf[1024];

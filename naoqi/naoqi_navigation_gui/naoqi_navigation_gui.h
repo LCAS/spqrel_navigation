@@ -45,7 +45,7 @@ namespace naoqi_navigation_gui {
     UnsignedCharImage _map_image;
     IntImage _indices_image;
     
-    Vector2fVector _laser_points;
+    Vector2fVector _laser_points, _laser_points_d2l;
     bool _use_d2l;
     bool _move_enabled;
     bool _collision_protection_enabled, _collision_protection_desired;

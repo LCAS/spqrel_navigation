@@ -75,13 +75,13 @@ class TopologicalLocaliser(object):
         )
         self._sub_plan.signal.connect(self._on_get_plan)
 
-        self._sub_goal_reached = self.memProxy.subscriber(
-            "NAOqiPlanner/GoalReached"
-        )
-        self._sub_goal_reached.signal.connect(self._on_qiplanner_goal_reached)
+        # self._sub_goal_reached = self.memProxy.subscriber(
+        #     "NAOqiPlanner/GoalReached"
+        # )
+        # self._sub_goal_reached.signal.connect(self._on_qiplanner_goal_reached)
 
         self._sub_status = self.memProxy.subscriber(
-            "NAOqiPlanner/Status"
+            "NAOqiPlanner/Result"
         )
         self._sub_status.signal.connect(self._on_qiplanner_status)
 
@@ -176,7 +176,7 @@ class TopologicalLocaliser(object):
                 self.failed = True
                 self.failed_to = self.current_target
                 self.fail_code = 0
-        elif data == 'PathNotFound':
+        elif data == 'Aborted':
             self.failed = True
             self.failed_to = self.current_target
             self.fail_code = 1
@@ -348,7 +348,7 @@ class TopologicalLocaliser(object):
             gpose = gnode.pose
             self.goal_reached = False
 
-            goal_pose = [gpose.position.x, gpose.position.y]
+            goal_pose = [gpose.position.x, gpose.position.y, gpose.orientation.z]
 
             print goal_pose, command
 

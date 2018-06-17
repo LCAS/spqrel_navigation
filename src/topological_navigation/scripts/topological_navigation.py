@@ -130,7 +130,9 @@ class TopologicalLocaliser(object):
             self.navigate(goal)
 
             self.goal_active = False
+            
 
+    # TODO IS THIS USED???
     def _on_get_plan(self, data):
         print('on_get_plan: %s' % data)
         route = self.get_route(goal)
@@ -256,7 +258,7 @@ class TopologicalLocaliser(object):
                 else:
                     print "There is no route to this node check your edges ..."
             else:
-                # Target and Origin are the same
+                # Target and Origin are the same TODO CHECK CAN FAIL
                 if(g_node.name == o_node.name):
                     print "Target and Origin Nodes are the same"
                     self.memProxy.raiseEvent("TopologicalNav/Status",

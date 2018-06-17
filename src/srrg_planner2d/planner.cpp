@@ -573,11 +573,8 @@ namespace srrg_planner {
   }
 
   void Planner::runOnce(){
-    if (_have_goal){
-      _mtx_display.lock();
+    if (_have_goal)
       plannerStep();
-      _mtx_display.unlock();
-    }
 
     if (_use_gui)
       handleGUI();

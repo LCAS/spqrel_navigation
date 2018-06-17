@@ -105,6 +105,7 @@ namespace naoqi_localizer {
       FloatVector robot_pose_vector = toFloatVector3f(robot_pose);
 
       _memory_service.call<void>("insertData", "NAOqiLocalizer/RobotPose", robot_pose_vector);
+      _memory_service.call<void>("raiseEvent", "NAOqiLocalizer/RobotPose", robot_pose_vector);
       
       std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
       int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();

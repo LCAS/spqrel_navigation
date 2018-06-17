@@ -52,6 +52,8 @@ namespace srrg_planner {
   }
 
   void Planner::restartPathMap(){
+    _mtx_display.lock();
+
     _dyn_map.clearPoints();
     
     int occ_threshold = (1.0 - _occ_threshold) * 255;
@@ -73,6 +75,8 @@ namespace srrg_planner {
 		   _distance_image, _robot_radius, _safety_region, _min_cost, _max_cost);
     distances2cost(_cost_image,
 		   _distance_image, _robot_radius, _safety_region, _min_cost, _max_cost);
+
+    _mtx_display.unlock();
   }
   
   void Planner::readMap(const std::string mapname){
@@ -569,8 +573,11 @@ namespace srrg_planner {
   }
 
   void Planner::runOnce(){
-    if (_have_goal)
+    if (_have_goal){
+      _mtx_display.lock();
       plannerStep();
+      _mtx_display.unlock();
+    }
 
     if (_use_gui)
       handleGUI();

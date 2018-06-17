@@ -130,7 +130,9 @@ class TopologicalLocaliser(object):
             self.navigate(goal)
 
             self.goal_active = False
+            
 
+    # TODO IS THIS USED???
     def _on_get_plan(self, data):
         print('on_get_plan: %s' % data)
         route = self.get_route(goal)
@@ -148,6 +150,7 @@ class TopologicalLocaliser(object):
                     nn = get_node(self.map, j.node)
                     step['dest']['x'] = nn.pose.position.x
                     step['dest']['y'] = nn.pose.position.y
+                    # TODO ADD ORIENTATION
             plan.append(step)
         if route:
             self.memProxy.insertData("TopologicalNav/Route",
@@ -255,7 +258,7 @@ class TopologicalLocaliser(object):
                 else:
                     print "There is no route to this node check your edges ..."
             else:
-                # Target and Origin are the same
+                # Target and Origin are the same TODO CHECK CAN FAIL
                 if(g_node.name == o_node.name):
                     print "Target and Origin Nodes are the same"
                     self.memProxy.raiseEvent("TopologicalNav/Status",
@@ -379,6 +382,8 @@ class TopologicalLocaliser(object):
                 print "monitored_nav attempt %d to %s" % (nTry, gnode.name)
                 self.failure = False
                 while not self.cancelled and not self.goal_reached and not self.failure:
+                    #TODO ONLY DO THIS IF XY ACTION
+    
                     if self.current_node == gnode.name:
                         print "we are in reach of the goal, so let's report success"
                         self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)

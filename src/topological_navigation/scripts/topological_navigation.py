@@ -124,8 +124,9 @@ class TopologicalLocaliser(object):
             self.cancelled = True
             sleep(.5)
         logger.info('it is cancelled')
+        sleep(.1)
         self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
-	sleep(1)
+        sleep(.1)
         if goal == '':
             # empty goal means abort!
             # So nothing to be done as we cancelled above
@@ -401,9 +402,11 @@ class TopologicalLocaliser(object):
                     "monitored_nav attempt %d to %s" %
                     (nTry, gnode.name))
                 self.failure = False
+                sleep(.1)
                 self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
-                sleep(.5)
+                sleep(.2)
                 self.memProxy.raiseEvent(command, goal_pose)
+                sleep(.1)
                 while (
                     not self.cancelled and
                     not self.goal_reached and
@@ -417,7 +420,9 @@ class TopologicalLocaliser(object):
                         logger.info(
                             "we are in reach of the goal, "
                             "so let's report success")
+                        sleep(.1)
                         self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+                        sleep(.1)
                         return True
 
                     time.sleep(0.1)
@@ -429,8 +434,9 @@ class TopologicalLocaliser(object):
                                              "PlannerSuccesful")
                     return nav_ok
                 elif self.failure:
+                    sleep(.1)
                     self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
-                    sleep(1)
+                    sleep(.1)
                     nav_ok = False
                     if self.fail_code == 0:
                         failmsg = "ReachedWrongNode " + self.failed_to
@@ -493,6 +499,7 @@ class TopologicalLocaliser(object):
 
     def _on_shutdown(self, signal, frame):
         print('You pressed Ctrl+C!')
+        sleep(.1)
         self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
         self.cancelled = True
         self.loc_timer.cancel()

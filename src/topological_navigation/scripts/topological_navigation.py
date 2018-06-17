@@ -100,6 +100,7 @@ class TopologicalLocaliser(object):
         self.current_node = 'start'
         # If it fails reaching one goal this variable stores the node it was trying to reach when failed
         self.failed_to = 'none'
+        self.failure = False
         self.fail_code = 0
         self.cancelled = False
         self.navigation_activated = False
@@ -177,18 +178,19 @@ class TopologicalLocaliser(object):
         if data == 'GoalReached':
             if self.current_target == self.current_node:
                 self.goal_reached = True
-                self.failed = False
+                self.failure = False
                 self.failed_to = 'none'
                 self.fail_code = 0
             else:
                 self.goal_reached = False
-                self.failed = True
+                self.failure = True
                 self.failed_to = self.current_target
                 self.fail_code = 0
         elif data == 'Aborted':
-            self.failed = True
+            self.failure = True
             self.failed_to = self.current_target
             self.fail_code = 1
+            self.goal_reached = False
 
     def _insert_nodes(self):
         node_names = []

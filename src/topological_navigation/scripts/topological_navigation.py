@@ -70,7 +70,7 @@ class TopologicalLocaliser(object):
         self.memProxy = session.service("ALMemory")
         self.goal_check = False
         self.goal_reached = False
-        self._max_retries = 10
+        self._max_retries = 3
 
         self._sub_navgaol = self.memProxy.subscriber(
             "TopologicalNav/Goal"
@@ -390,9 +390,6 @@ class TopologicalLocaliser(object):
 
             logger.info('goal_pose=%s, command=%s' % (goal_pose, command))
 
-            # send goal to QiPlanner
-            self.memProxy.raiseEvent(command, goal_pose)
-
             nTry = 0
 
             while (
@@ -404,6 +401,9 @@ class TopologicalLocaliser(object):
                     "monitored_nav attempt %d to %s" %
                     (nTry, gnode.name))
                 self.failure = False
+                self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+                sleep(.5)
+                self.memProxy.raiseEvent(command, goal_pose)
                 while (
                     not self.cancelled and
                     not self.goal_reached and

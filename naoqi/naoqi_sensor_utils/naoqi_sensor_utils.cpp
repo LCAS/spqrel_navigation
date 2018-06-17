@@ -92,7 +92,7 @@ namespace naoqi_sensor_utils {
     return endpoints;
   }
 
-  Vector2fVector getLaserFromDepth(qi::AnyObject memory_service){
+  Vector2fVector getLaserFromDepth(qi::AnyObject memory_service, float usable_range){
     qi::AnyValue ranges_readings = memory_service.call<qi::AnyValue>("getData", "NAOqiDepth2Laser/Ranges");
     std::vector<float> ranges = ranges_readings.toList<float>();
     qi::AnyValue nranges_reading = memory_service.call<qi::AnyValue>("getData", "NAOqiDepth2Laser/NumRanges");
@@ -104,11 +104,17 @@ namespace naoqi_sensor_utils {
     float angle_inc = (angle_max - angle_min)/nranges;
     qi::AnyValue max_range_reading = memory_service.call<qi::AnyValue>("getData", "NAOqiDepth2Laser/MaxRange");
     float range_max = max_range_reading.toFloat();
-    
+
+    float max_usable_range = usable_range;
+    if (range_max < usable_range) {
+      max_usable_range = range_max;
+    }
+
+      
     Vector2fVector points(nranges);
     size_t num_valid_points = 0;
     for (size_t i = 0; i < points.size(); i++) {
-      if (ranges[i] < range_max) {
+      if (ranges[i] < max_usable_range) {
 	float x, y;
 	x = ranges[i]*cos(angle_min + i*angle_inc);
 	y = ranges[i]*sin(angle_min + i*angle_inc);

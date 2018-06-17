@@ -184,7 +184,7 @@ namespace spqrel_navigation {
     Vector2fVector laser_points;
     laser_points = getLaser(_memory_service, _usable_range); //Pepper's Laser points
     if (useD2L()) {
-      Vector2fVector laser_points_d2l = getLaserFromDepth(_memory_service); //Depth2Laser points
+      Vector2fVector laser_points_d2l = getLaserFromDepth(_memory_service, _usable_range); //Depth2Laser points
       laser_points.insert(laser_points.end(), laser_points_d2l.begin(), laser_points_d2l.end()); 
     }
     

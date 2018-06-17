@@ -111,6 +111,6 @@ namespace naoqi_sensor_utils {
 
   Vector2fVector getLaser(qi::AnyObject memory_service, float max_range = laser_max_range);
 
-  Vector2fVector getLaserFromDepth(qi::AnyObject memory_service);
+  Vector2fVector getLaserFromDepth(qi::AnyObject memory_service, float usable_range = 15);
 
 }

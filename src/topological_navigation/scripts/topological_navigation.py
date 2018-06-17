@@ -148,6 +148,7 @@ class TopologicalLocaliser(object):
                     nn = get_node(self.map, j.node)
                     step['dest']['x'] = nn.pose.position.x
                     step['dest']['y'] = nn.pose.position.y
+                    # TODO ADD ORIENTATION
             plan.append(step)
         if route:
             self.memProxy.insertData("TopologicalNav/Route",
@@ -379,6 +380,8 @@ class TopologicalLocaliser(object):
                 print "monitored_nav attempt %d to %s" % (nTry, gnode.name)
                 self.failure = False
                 while not self.cancelled and not self.goal_reached and not self.failure:
+                    #TODO ONLY DO THIS IF XY ACTION
+    
                     if self.current_node == gnode.name:
                         print "we are in reach of the goal, so let's report success"
                         self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)

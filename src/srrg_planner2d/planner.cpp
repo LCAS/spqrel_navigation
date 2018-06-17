@@ -34,11 +34,13 @@ namespace srrg_planner {
   }
 
   void Planner::cancelGoal() {
+    _mtx_display.lock();
     _have_goal = false;
     _path.clear();
     _velocities = Eigen::Vector2f::Zero();
     _motion_controller.resetVelocities();
     _on_recovery_time = false;
+    _mtx_display.unlock();
     stopRobot();
   }
   

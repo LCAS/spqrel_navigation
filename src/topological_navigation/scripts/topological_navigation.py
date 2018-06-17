@@ -89,7 +89,7 @@ class TopologicalLocaliser(object):
 
         self.move_base_actions = ['NAOqiPlanner/Goal']
         self.__fake = fake
-        self.__fake_node = 'start'
+        self.__fake_node = 'WayPoint1'
         self.closest_node = 'start'
         self.current_node = 'start'
         # If it fails reaching one goal this variable stores the node it was trying to reach when failed
@@ -208,11 +208,11 @@ class TopologicalLocaliser(object):
                                      self.current_node)
             self.memProxy.insertData("TopologicalNav/LastNode",
                                      self.current_node)
-            print self.current_node
+            # print self.current_node
         if pre_clonod != self.closest_node:
             self.memProxy.raiseEvent("TopologicalNav/ClosestNode",
                                      self.closest_node)
-            print self.closest_node
+            # print self.closest_node
 
         self.loc_timer = Timer(0.5, self._localisation_timer)
         self.loc_timer.start()
@@ -242,25 +242,30 @@ class TopologicalLocaliser(object):
 
         # Everything is Awesome!!!
         # Target and Origin are Different and none of them is None
-        if (g_node is not None) and\
-           (o_node is not None) and\
-           (g_node.name != o_node.name):
-            rsearch = TopologicalRouteSearch(self.map)
-            route = rsearch.search_route(o_node.name, target)
-            print route
-            if route:
-                print "Navigating Case 1"
-                self.follow_route(route)
+        try:
+            if (g_node is not None) and\
+               (o_node is not None) and\
+               (g_node.name != o_node.name):
+                rsearch = TopologicalRouteSearch(self.map)
+                route = rsearch.search_route(o_node.name, target)
+                print route
+                if route:
+                    print "Navigating Case 1"
+                    self.follow_route(route)
+                else:
+                    print "There is no route to this node check your edges ..."
             else:
-                print "There is no route to this node check your edges ..."
-        else:
-            # Target and Origin are the same
-            if(g_node.name == o_node.name):
-                print "Target and Origin Nodes are the same"
-                self.memProxy.raiseEvent("TopologicalNav/Status", "Success")
-            else:
-                print "Target or Origin Nodes were not found on Map"
-                self.memProxy.raiseEvent("TopologicalNav/Status", "Fail")
+                # Target and Origin are the same
+                if(g_node.name == o_node.name):
+                    print "Target and Origin Nodes are the same"
+                    self.memProxy.raiseEvent("TopologicalNav/Status",
+                                             "Success")
+                else:
+                    print "Target or Origin Nodes were not found on Map"
+                    self.memProxy.raiseEvent("TopologicalNav/Status", "Fail")
+        except Exception as e:
+            print('*** FATAL PROBLEM IN TOPOLOGICAL NAVIGATION: %s', str(e))
+            self.memProxy.raiseEvent("TopologicalNav/Status", "Fail")
 
     def follow_route(self, route):
         """
@@ -313,10 +318,14 @@ class TopologicalLocaliser(object):
 
             cnode = get_node(self.map, cedg.node)
 
+            if a == a1:
+                definite_action = "NAOqiPlanner/GoalXY"
+            else:
+                definite_action = a
             print "From " + route.source[rindex] + \
                 " do " + a + " to " + cedg.node
             self.current_target = cedg.node
-            nav_ok = self.monitored_navigation(cnode, a)
+            nav_ok = self.monitored_navigation(cnode, definite_action)
             if nav_ok:
                 rindex = rindex + 1
             elif self.fail_code == 0:  # wrong node, go the right one again
@@ -337,7 +346,10 @@ class TopologicalLocaliser(object):
             print('FAKE navigation, pretending to go to target')
 
             sleep(randrange(1, 10))
-            print('FAKE navigation, pretending to have succeeded')
+            gpose = gnode.pose
+
+            print('@@@ FAKE navigation, pretending to have succeeded '
+                  'with action %s to pose %s' % (command, str(gpose.position)))
             self.memProxy.raiseEvent("TopologicalNav/Status",
                                      "PlannerSuccesful")
             self.__fake_node = gnode.name
@@ -347,8 +359,14 @@ class TopologicalLocaliser(object):
             nav_ok = False
             gpose = gnode.pose
             self.goal_reached = False
-
-            goal_pose = [gpose.position.x, gpose.position.y, gpose.orientation.z]
+            # big, big hack here: If the command ends in "XY",
+            # then only send to X and Y coords
+            if command.endswith('XY'):
+                goal_pose = [gpose.position.x, gpose.position.y]
+            else:
+                goal_pose = [gpose.position.x,
+                             gpose.position.y,
+                             gpose.orientation.z]
 
             print goal_pose, command
 

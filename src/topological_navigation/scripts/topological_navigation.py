@@ -125,7 +125,7 @@ class TopologicalLocaliser(object):
             sleep(.5)
         logger.info('it is cancelled')
         self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
-
+	sleep(1)
         if goal == '':
             # empty goal means abort!
             # So nothing to be done as we cancelled above
@@ -430,6 +430,7 @@ class TopologicalLocaliser(object):
                     return nav_ok
                 elif self.failure:
                     self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+                    sleep(1)
                     nav_ok = False
                     if self.fail_code == 0:
                         failmsg = "ReachedWrongNode " + self.failed_to

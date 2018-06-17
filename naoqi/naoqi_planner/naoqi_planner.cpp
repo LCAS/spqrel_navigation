@@ -19,9 +19,7 @@ namespace spqrel_navigation {
     // Adding blind zones for Pepper's laser
     _dyn_map.clearPoints();
     _dyn_map.setTimeThreshold(30); //seconds
-    _dyn_map.addBlindZone(30*M_PI/180, 60*M_PI/180);
-    _dyn_map.addBlindZone(-30*M_PI/180, -60*M_PI/180);
-
+    
     _cycle_time_ms = 200;
 
     _collision_protection_desired = true;
@@ -36,6 +34,19 @@ namespace spqrel_navigation {
 
      bool use_d2l = vm["use_d2l"].as<bool>();
      setUseD2L(use_d2l);
+
+     if (useD2L()){
+       qi::AnyValue subscribe_angle_min = _memory_service.call<qi::AnyValue>("getData","NAOqiDepth2Laser/MinAngle");
+       qi::AnyValue subscribe_angle_max = _memory_service.call<qi::AnyValue>("getData","NAOqiDepth2Laser/MaxAngle");
+       float angle_min = subscribe_angle_min.asFloat();
+       float angle_max = subscribe_angle_max.asFloat();
+       _dyn_map.addBlindZone(angle_max, 60*M_PI/180);
+       _dyn_map.addBlindZone(angle_min, -60*M_PI/180);
+       _dyn_map.setNumRanges(2000);
+     } else{
+       _dyn_map.addBlindZone(30*M_PI/180, 60*M_PI/180);
+       _dyn_map.addBlindZone(-30*M_PI/180, -60*M_PI/180);
+     }
      
      // --map option
     std::string mapname;

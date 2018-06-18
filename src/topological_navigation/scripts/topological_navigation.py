@@ -95,7 +95,7 @@ class TopologicalLocaliser(object):
         logger.info('subscribed to NAOqiPlanner/Result')
         self.move_base_actions = ['NAOqiPlanner/Goal']
         self.__fake = fake
-        self.__fake_node = 'WayPoint1'
+        self.__fake_node = 'wp1'
         self.closest_node = 'start'
         self.current_node = 'start'
         # If it fails reaching one goal this variable stores the node it was trying to reach when failed
@@ -125,12 +125,10 @@ class TopologicalLocaliser(object):
             sleep(.5)
         logger.info('it is cancelled')
         sleep(.1)
-        self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+        # self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
         sleep(.1)
         if goal == '':
-            # empty goal means abort!
-            # So nothing to be done as we cancelled above
-            pass
+            self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
         else:
             self.goal_active = True
             self.goal_reached = False
@@ -403,7 +401,7 @@ class TopologicalLocaliser(object):
                     (nTry, gnode.name))
                 self.failure = False
                 sleep(.1)
-                self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+                # self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
                 sleep(.2)
                 self.memProxy.raiseEvent(command, goal_pose)
                 sleep(.1)
@@ -421,7 +419,7 @@ class TopologicalLocaliser(object):
                             "we are in reach of the goal, "
                             "so let's report success")
                         sleep(.1)
-                        self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+                        # self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
                         sleep(.1)
                         return True
 
@@ -435,7 +433,7 @@ class TopologicalLocaliser(object):
                     return nav_ok
                 elif self.failure:
                     sleep(.1)
-                    self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
+                    # self.memProxy.raiseEvent("NAOqiPlanner/Reset", True)
                     sleep(.1)
                     nav_ok = False
                     if self.fail_code == 0:

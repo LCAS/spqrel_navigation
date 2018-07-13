@@ -34,13 +34,11 @@ namespace srrg_planner {
   }
 
   void Planner::cancelGoal() {
-    _mtx_display.lock();
     _have_goal = false;
     _path.clear();
     _velocities = Eigen::Vector2f::Zero();
     _motion_controller.resetVelocities();
     _on_recovery_time = false;
-    _mtx_display.unlock();
     stopRobot();
   }
   
@@ -52,8 +50,6 @@ namespace srrg_planner {
   }
 
   void Planner::restartPathMap(){
-    _mtx_display.lock();
-
     _dyn_map.clearPoints();
     
     int occ_threshold = (1.0 - _occ_threshold) * 255;
@@ -76,7 +72,6 @@ namespace srrg_planner {
     distances2cost(_cost_image,
 		   _distance_image, _robot_radius, _safety_region, _min_cost, _max_cost);
 
-    _mtx_display.unlock();
   }
   
   void Planner::readMap(const std::string mapname){

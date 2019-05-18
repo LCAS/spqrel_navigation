@@ -92,5 +92,9 @@ namespace spqrel_navigation {
 			   const Eigen::Vector3f& laser_pose,
 			   const sensor_msgs::LaserScan::ConstPtr& msg);
 
+    // Flags
+    bool _map_received;
+    bool _tf_timecheck;
+
   };
 }

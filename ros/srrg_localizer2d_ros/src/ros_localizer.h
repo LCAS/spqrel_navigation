@@ -60,7 +60,12 @@ namespace srrg_localizer2d_ros{
     //! requests a map via rpc
     void requestMap();
 
+    //! Set initial pose
     void setInitialPose(float x, float y,float theta);
+
+    //! Set flag to check for tf timing
+    void setTFTimeCheck(bool tf_timecheck);
+
   protected:
     
     tf::TransformListener* _listener; //< listener object uset do compute the relative laser transform and to listen to odom
@@ -148,6 +153,8 @@ namespace srrg_localizer2d_ros{
     bool _show_distance_map; //! if 1 in the gui shows the distance map. (to be toggled with "d")
     bool _force_redisplay;   //! if toggled to one forces the display and sends out all messages 
     bool _set_pose;          //! set_pose mode (to be toggled with "s")
+
+    bool _tf_timecheck;      //! if tf times are checked
   };
 
 

@@ -31,6 +31,11 @@ namespace srrg_localizer2d_ros{
     _timers.resize(10);
     _last_timer_slot=0;
     _laser_pose.setZero();
+    _tf_timecheck = true;
+  }
+
+  void ROSLocalizer::setTFTimeCheck(bool tf_timecheck) {
+    _tf_timecheck = tf_timecheck;
   }
 
   void ROSLocalizer::initGUI(){
@@ -78,25 +83,46 @@ namespace srrg_localizer2d_ros{
 
     std::string error;
 
+#if 0
     // laser pose on robot
     if (! _listener->waitForTransform (_base_frame_id, 
 				       msg->header.frame_id, 
 				       _last_observation_time, 
 				       ros::Duration(0.5), 
 				       ros::Duration(0.5), &error)) {
-      cerr << "ROSLocalizer: transform error from " << _base_frame_id << " to " << msg->header.frame_id << " : " << error << endl;
-      return;
+      //cerr << "ROSLocalizer: transform error from " << _base_frame_id << " to " << msg->header.frame_id << " : " << error << endl;
+      //return;
     }
     tf::StampedTransform laser_pose_t;
     _listener->lookupTransform(_base_frame_id, 
 			       msg->header.frame_id, 
-			       _last_observation_time, 
+			       ros::Time(0), // _last_observation_time, 
 			       laser_pose_t);
+#endif
 
+    // Get laser pose on robot
+    tf::StampedTransform laser_pose_t;
+    try {
+      _listener->waitForTransform(_base_frame_id, msg->header.frame_id,
+				 _last_observation_time,
+				 ros::Duration(0.5), ros::Duration(0.5), &error);
+
+      if (_tf_timecheck)
+          _listener->lookupTransform(_base_frame_id, msg->header.frame_id,
+				 msg->header.stamp,
+				 laser_pose_t);
+      else
+          _listener->lookupTransform(_base_frame_id, msg->header.frame_id,
+				 ros::Time(0),
+				 laser_pose_t);
+    }
+    catch (tf::TransformException ex){
+      ROS_ERROR("Laser pose transform: %s",ex.what());
+    }
     Eigen::Vector3f laser_pose = convertPose2D(laser_pose_t);
 
 
-
+#if 0
     // odometry
     if (! _listener->waitForTransform (_odom_frame_id, 
 				       _base_frame_id,
@@ -104,17 +130,39 @@ namespace srrg_localizer2d_ros{
 				       ros::Duration(0.5), 
 				       ros::Duration(0.5), 
 				       &error)) {
-      cerr << "ROSLocalizer: transform error from " << _odom_frame_id << " to " << _base_frame_id << " : " << error << endl;
-      return;
+      //cerr << "ROSLocalizer: transform error from " << _odom_frame_id << " to " << _base_frame_id << " : " << error << endl;
+      //return;
     }
     tf::StampedTransform odom_pose_t;
     _listener->lookupTransform(_odom_frame_id, 
 			       _base_frame_id,
-			       _last_observation_time, 
+			       ros::Time(0), // _last_observation_time, 
 			       odom_pose_t);
+#endif
 
+    // Get odometry pose
+    tf::StampedTransform odom_pose_t;
+    try {
+      _listener->waitForTransform(_odom_frame_id, _base_frame_id,
+				 _last_observation_time, 
+				 ros::Duration(0.5), ros::Duration(0.5), &error);
+      if (_tf_timecheck)
+        _listener->lookupTransform(_odom_frame_id, _base_frame_id,
+				 msg->header.stamp,
+				 odom_pose_t);
+      else
+        _listener->lookupTransform(_odom_frame_id, _base_frame_id,
+				 ros::Time(0),
+				 odom_pose_t);
+    }
+    catch (tf::TransformException ex){
+      ROS_ERROR("Robot odom pose transform: %s",ex.what());
+    }
     Eigen::Vector3f odom_pose = convertPose2D(odom_pose_t);
-   
+
+
+#if 0
+// LI what's for???
     if (! _listener->waitForTransform (_base_frame_id, 
 				       msg->header.frame_id, 
 				       _last_observation_time, 
@@ -124,6 +172,7 @@ namespace srrg_localizer2d_ros{
       cerr << "error: " << error << endl;
       return;
     }
+#endif
 
     std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 

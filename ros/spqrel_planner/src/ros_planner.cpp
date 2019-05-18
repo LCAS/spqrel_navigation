@@ -28,6 +28,9 @@ namespace spqrel_navigation {
     _base_frame_id = "base_footprint";
     _global_frame_id = "/map";
 
+    _map_received = false;
+    _tf_timecheck = true;
+
   }
 
   void ROSPlanner::getParams() {
@@ -50,6 +53,7 @@ namespace spqrel_navigation {
     private_nh.getParam("static_map_service", _static_map_service);
     private_nh.getParam("base_frame_id", _base_frame_id);
     private_nh.getParam("global_frame_id", _global_frame_id);
+    private_nh.getParam("tf_timecheck", _tf_timecheck); // check errors on TF timing
 
     float robot_radius;
     if (private_nh.getParam("robot_radius", robot_radius))
@@ -94,6 +98,7 @@ namespace spqrel_navigation {
     std::cerr << "  static_map_service: " << _static_map_service << std::endl;
     std::cerr << "  base_frame_id: "      << _base_frame_id      << std::endl;
     std::cerr << "  global_frame_id: "    << _global_frame_id    << std::endl;
+    std::cerr << "  tf_timecheck: "       << _tf_timecheck    << std::endl;
     std::cerr << "  robot_radius: "       << robotRadius()       << std::endl;
     std::cerr << "  max_linear_vel: "     << maxLinearVel()      << std::endl;
     std::cerr << "  max_angular_vel: "    << maxAngularVel()     << std::endl;
@@ -137,7 +142,7 @@ namespace spqrel_navigation {
 
   void ROSPlanner::subscribeMap(){
     std::cerr << "Subscribing to Map: " << _map_topic << std::endl;
-    _map_sub = _nh.subscribe(_map_topic, 1, &ROSPlanner::mapCallback, this);
+    _map_sub = _nh.subscribe(_map_topic, 3, &ROSPlanner::mapCallback, this);
   }
 
   void ROSPlanner::subscribeCancel(){
@@ -196,8 +201,14 @@ namespace spqrel_navigation {
       _listener->waitForTransform(_base_frame_id, msg->header.frame_id,
 				  msg->header.stamp,
 				  ros::Duration(0.5));
-      _listener->lookupTransform(_base_frame_id, msg->header.frame_id,
+
+      if (_tf_timecheck)
+          _listener->lookupTransform(_base_frame_id, msg->header.frame_id,
 				 msg->header.stamp,
+				 laser_pose_tf);
+      else
+          _listener->lookupTransform(_base_frame_id, msg->header.frame_id,
+				 ros::Time(0),
 				 laser_pose_tf);
     }
     catch (tf::TransformException ex){
@@ -211,13 +222,19 @@ namespace spqrel_navigation {
       _listener->waitForTransform(_global_frame_id, _base_frame_id,
 				  msg->header.stamp,
 				  ros::Duration(0.5));
-      _listener->lookupTransform(_global_frame_id, _base_frame_id,
+      if (_tf_timecheck)
+        _listener->lookupTransform(_global_frame_id, _base_frame_id,
 				 msg->header.stamp,
+				 robot_pose_tf);
+      else
+        _listener->lookupTransform(_global_frame_id, _base_frame_id,
+				 ros::Time(0),
 				 robot_pose_tf);
     }
     catch (tf::TransformException ex){
       ROS_ERROR("Robot pose transform: %s",ex.what());
-    }   
+    }
+ 
     Eigen::Vector3f robot_pose = convertPose2D(robot_pose_tf);
 
     // Pruning some points
@@ -293,6 +310,9 @@ namespace spqrel_navigation {
     
     // This reset cancels the current goal
     //reset();
+
+    _map_received = true;
+
   }
 
 
@@ -366,15 +386,42 @@ namespace spqrel_navigation {
     nav_msgs::GetMap::Response resp;
     ROS_INFO("Requesting the map...");
 
-    while(ros::ok() && !ros::service::call(_static_map_service, req, resp)){
-      ROS_WARN_STREAM("Request for map " << _static_map_service << " failed; trying again...");
-      ros::Duration d(0.5);
+    float timeout = 5.0; // seconds after stop polling
+    float dt = 0.5;
+    ros::Duration d(dt);
+    bool rec = false;
+    while(ros::ok() && timeout>0 && !rec) {
+      rec = ros::service::call(_static_map_service, req, resp);
+      if (!rec)
+        ROS_WARN_STREAM("Request for map " << _static_map_service << " failed; trying again...");
+      timeout -= dt;
       d.sleep();
     }
+    if (!rec and _static_map_service!="static_map") {
+        // try default name 'static_map'
+        timeout = 5.0;
+        while(ros::ok() && timeout>0 && !rec) {
+          rec = ros::service::call("static_map", req, resp);
+          if (!rec)
+            ROS_WARN_STREAM("Request for map using " << "static_map" << " failed; trying again...");
+          timeout -= dt;
+          d.sleep();
+        }
+    }
+
     
     if (!ros::ok()) 
       ros::shutdown();
-    else
+    else if (rec) // received
       mapCallback(resp.map);
+    else {
+      subscribeMap();
+      while (! _map_received) {
+        ROS_WARN_STREAM("Waiting for map from topic " << _map_topic << " ...");
+        d.sleep();
+      }   
+    }
+
   }
 }
+

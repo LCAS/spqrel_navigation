@@ -439,15 +439,15 @@ namespace srrg_planner {
 
     if (!_path.size()){
       if (_robot_pose_pixel == _goal_pixel){
-	// Path is zero because robot is on the goal
-	publishResult(GoalReached);
-	cancelGoal();
+	    // Path is zero because robot is on the goal
+	    publishResult(GoalReached);
+	    cancelGoal();
       }else{
-	bool recovery_success = manageRecovery();
-	if (!recovery_success){
-	  publishResult(Aborted);
-	  cancelGoal();	  
-	}
+	    bool recovery_success = manageRecovery();
+	    if (!recovery_success){
+	      publishResult(Aborted);
+	      cancelGoal();	  
+	    }
       }
     } else {
 
@@ -638,9 +638,9 @@ namespace srrg_planner {
 				 (_robot_pose_image.y()-obstacle_image.y())*(_robot_pose_image.y()-obstacle_image.y()));
 
       if ( distance_goal > _recovery_obstacle_distance){
-	return true;	
+        return true;	
       }else
-	return false;
+        return false;
 
     }
     else {

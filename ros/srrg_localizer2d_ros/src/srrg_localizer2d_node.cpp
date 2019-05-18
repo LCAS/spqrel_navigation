@@ -56,6 +56,10 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   private_nh.param("laser_topic", laser_topic, std::string("base_scan"));
   cerr << "[string] _laser_topic: " << laser_topic << endl;
 
+  bool tf_timecheck;
+  private_nh.param("tf_timecheck", tf_timecheck, true);
+  cerr << "[bool] _tf_timecheck: " << tf_timecheck << endl;
+  localizer->setTFTimeCheck(tf_timecheck);
 
 
   Eigen::Vector3d initial_pose(0,0,0);

@@ -54,6 +54,37 @@ void MotionController::_movementGenerator(Eigen::Vector2f& F, float& v, float& w
     w = 0;
 }
 
+// adapting v and w according to angle to goal
+void MotionController::adjustVel(float &v, float &w, float angle_goal) {
+
+    //printf("adjust vel %.3f %.3f  (angle_goal: %.3f)", v,w,angle_goal);
+
+    float delta_slow_down = 0.25;
+    // Check if angle to the goal greater than a threshold
+    if (fabs(angle_goal) > (1+delta_slow_down) * _goal_rotation_tolerance){
+      // Switch to rotation-only behaviour to orientate towards the goal
+      if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
+        w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
+      v = 0; // dont move forward
+    }
+    // slow down if close to target
+    else if (fabs(angle_goal) > _goal_rotation_tolerance){
+      int sign = (w>=0)?+1:-1;
+      float w1 = w;
+      w =  fabs(w) * (fabs(angle_goal) - _goal_rotation_tolerance)/
+                     (delta_slow_down * _goal_rotation_tolerance) ;
+
+      if (w<_min_angular_vel) w = _min_angular_vel; // keep some min velocity
+
+      w = w * sign;
+      //printf("[slow down %.3f -> %.3f]\n", w1,w);
+      if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
+        w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
+      v = 0; // dont move forward
+    }
+
+    // printf(" -> %.3f %.3f\n", v, w);
+}
 
 
 bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, const Eigen::Vector2f& goal_xy, Eigen::Vector2f& velocities){
@@ -72,12 +103,17 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
 
     float v, w;
     _movementGenerator(F, v, w);
-    
+
+#if 1 // LI using new function
+    adjustVel(v, w, angle_goal);
+    velocities.x() = v;
+    velocities.y() = w;
+#else    
     // Check if angle to the goal greater than a threshold
     if (fabs(angle_goal) > _goal_rotation_tolerance){
       // Switch to rotation-only behaviour to orientate towards the goal
       if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
-	w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
+	    w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
       velocities.y() = w;
     }
     else {
@@ -85,7 +121,8 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
       velocities.x() = v;
       velocities.y() = w;
     }
-    
+#endif
+
   } else {
     reached = true;
   }
@@ -122,7 +159,7 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
       _movementGenerator(F, v, w);
 
       if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
-	w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
+	    w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
       velocities.y() = w;
     } else {
       // We are close and oriented
@@ -135,18 +172,37 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
     float v, w;
     _movementGenerator(F, v, w);
 
+#if 1 // LI using new function
+    adjustVel(v, w, angle_goal);
+    velocities.x() = v;
+    velocities.y() = w;
+#else
     // Check if angle to the goal greater than a threshold
-    if (fabs(angle_goal) > _goal_rotation_tolerance){
+    if (fabs(angle_goal) > 1.2 * _goal_rotation_tolerance){
       // Switch to rotation-only behaviour to orientate towards the goal
       if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
-	w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
+        w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
       velocities.y() = w;
     }
+    // slow down if close to target
+    else if (fabs(angle_goal) > _goal_rotation_tolerance){
+      int sign = (w>=0)?+1:-1;
+      float w1 = w;
+      w = sign * ( fabs(w) * (fabs(angle_goal) - _goal_rotation_tolerance)/(0.2 * _goal_rotation_tolerance) + 2 * _min_angular_vel);
+      printf("slow down rotation %.3f -> %.3f\n", w1,w);
+      if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
+        w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
+      velocities.y() = w;
+    }
+
     else {
       // Otherwise the velocities computed are returned
       velocities.x() = v;
       velocities.y() = w;
     }
+#endif
+
+
   }
   
   _prev_linear_vel = velocities.x();

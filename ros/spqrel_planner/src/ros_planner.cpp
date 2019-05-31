@@ -392,23 +392,22 @@ namespace spqrel_navigation {
     bool rec = false;
     while(ros::ok() && timeout>0 && !rec) {
       rec = ros::service::call(_static_map_service, req, resp);
-      if (!rec)
+      if (!rec) {
         ROS_WARN_STREAM("Request for map " << _static_map_service << " failed; trying again...");
+
+        rec = ros::service::call("static_map", req, resp);
+        if (!rec) {
+          ROS_WARN_STREAM("Request for map using " << "static_map" << " failed; trying again...");
+
+          rec = ros::service::call("map", req, resp);
+          if (!rec)
+            ROS_WARN_STREAM("Request for map using " << "map" << " failed; trying again...");
+        } 
+      }
+
       timeout -= dt;
       d.sleep();
     }
-    if (!rec and _static_map_service!="static_map") {
-        // try default name 'static_map'
-        timeout = 5.0;
-        while(ros::ok() && timeout>0 && !rec) {
-          rec = ros::service::call("static_map", req, resp);
-          if (!rec)
-            ROS_WARN_STREAM("Request for map using " << "static_map" << " failed; trying again...");
-          timeout -= dt;
-          d.sleep();
-        }
-    }
-
     
     if (!ros::ok()) 
       ros::shutdown();

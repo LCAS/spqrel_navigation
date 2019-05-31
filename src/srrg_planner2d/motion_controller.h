@@ -70,6 +70,8 @@ protected:
   void _updateParameters();
   void _movementGenerator(Eigen::Vector2f& F, float& v, float& w);
   
+  void adjustVel(float &v, float &w, float angle_goal);
+
   float _f, _b, _k_i, _h, _T;
 
   float _max_linear_vel, _max_angular_vel, _max_linear_acc, _max_angular_acc;

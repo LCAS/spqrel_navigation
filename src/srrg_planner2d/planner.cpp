@@ -152,7 +152,7 @@ namespace srrg_planner {
     Planner* n=reinterpret_cast<Planner*>(v);
   
     if (event == cv::EVENT_LBUTTONDOWN && ((flags & cv::EVENT_FLAG_CTRLKEY) != 0) ) {
-      std::cerr << "Left Click!" << std::endl;
+      //std::cerr << "Left Click!" << std::endl;
       n->setGoalGUI(Eigen::Vector2i(y,x));
     }
   }
@@ -174,7 +174,7 @@ namespace srrg_planner {
     _mtx_display.unlock();
 
     setGoalXY(goal2f);
-    std::cerr << "Setting goal: " << _goal_pixel.transpose() << std::endl;
+    std::cerr << "Setting goal: " << "   " << goal2f.transpose() << "   - pixel: " << _goal_pixel.transpose() << std::endl;
   }
 
   void Planner::setGoalXY(const Eigen::Vector2f& goal){
@@ -400,8 +400,12 @@ namespace srrg_planner {
   }
   
   void Planner::plannerStep(){
-    if (!_have_goal)
+    if (!_have_goal) {
+      status = "no_goal";
       return;
+    }
+
+    status = "running";
 
     std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
@@ -423,6 +427,7 @@ namespace srrg_planner {
     
     }else{
       std::cerr << "WARNING: laser data not available." << std::endl;
+      status = "no laser";
     }
   
     _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
@@ -441,29 +446,32 @@ namespace srrg_planner {
       if (_robot_pose_pixel == _goal_pixel){
 	    // Path is zero because robot is on the goal
 	    publishResult(GoalReached);
+        status = "goal_reached";
 	    cancelGoal();
       }else{
 	    bool recovery_success = manageRecovery();
 	    if (!recovery_success){
 	      publishResult(Aborted);
+          status = "aborted";
 	      cancelGoal();	  
 	    }
       }
     } else {
 
       if (_on_recovery_time)
-	_on_recovery_time = false; //Path was found after recoveryTime
+        _on_recovery_time = false; //Path was found after recoveryTime
       
       bool goal_reached = computeControlToWaypoint(_have_goal_with_angle);
       
       if (goal_reached){
-	publishResult(GoalReached);
-	cancelGoal();
+        publishResult(GoalReached);
+        status = "goal_reached";
+        cancelGoal();
       } else {
-	if (moveEnabled())
-	  applyVelocities();
-	else 
-	  _motion_controller.resetVelocities();
+        if (moveEnabled())
+          applyVelocities();
+        else 
+          _motion_controller.resetVelocities();
       }
     }
 
@@ -554,6 +562,7 @@ namespace srrg_planner {
     startCmdVelPublisher();
     startPathPublisher();
     startResultPublisher();
+    startStatusPublisher();
   }
 
   void Planner::init(){
@@ -576,6 +585,13 @@ namespace srrg_planner {
 
     if (_path.size())
       publishPath();
+
+    if (status!="") {
+       publishState();
+       // std::cerr << status << std::endl;
+       if (status=="goal_reached" || status=="aborted")
+          status = "";
+    }
   }
 
   bool Planner::manageRecovery(){
@@ -590,8 +606,9 @@ namespace srrg_planner {
     }
     else {
       _motion_controller.resetVelocities();
+      bool r = recoveryTime();
       stopRobot();
-      return recoveryTime();
+      return r;
     }
   }
 
@@ -624,12 +641,12 @@ namespace srrg_planner {
       _path.clear();
       Eigen::Vector2i cell;
       for (size_t i=0; i<_nominal_path.size(); i++){
-	cell = _nominal_path[i];
-	//std::cerr << _cost_image(cell.x(), cell.y()) << std::endl;
-	if (_cost_image(cell.x(), cell.y()) != maxCost())
-	  _path.push_back(cell);
-	else
-	  break;
+	    cell = _nominal_path[i];
+	    //std::cerr << _cost_image(cell.x(), cell.y()) << std::endl;
+	    if (_cost_image(cell.x(), cell.y()) != maxCost())
+	      _path.push_back(cell);
+	    else
+	      break;
       }
 
       Eigen::Vector2f obstacle_image = grid2world(cell);
@@ -639,12 +656,16 @@ namespace srrg_planner {
 
       if ( distance_goal > _recovery_obstacle_distance){
         return true;	
-      }else
+      }else {
+        std::cerr << "Recovery plan failed: " << _nominal_path.size() << " - robot too close to obstacle" << std::endl;
+        status = "recovery_too_close_to_obstacle";
         return false;
+      }
 
     }
     else {
-      std::cerr << "Recovery plan failed: path not found on empty space." << std::endl;
+      std::cerr << "Recovery plan failed: " << _nominal_path.size() << " - path not found on empty space." << std::endl;
+      status = "recovery_path_not_found";
       return false;
     }
     

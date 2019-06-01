@@ -10,6 +10,7 @@
 #include <actionlib/server/simple_action_server.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/String.h>
 
 
 #include "srrg_planner2d/planner.h"
@@ -46,6 +47,7 @@ namespace spqrel_navigation {
     std::string _reset_topic;
     std::string _cmd_vel_topic;
     std::string _path_topic;
+    std::string _status_topic;
     std::string _static_map_service;
 
     //Subscribers
@@ -71,12 +73,13 @@ namespace spqrel_navigation {
 
     //Publishers
     ros::Publisher _cmd_vel_pub;
-    ros::Publisher _path_pub;
+    ros::Publisher _path_pub, _status_pub;
     void startCmdVelPublisher();
     void startPathPublisher();
     void startResultPublisher(){};
+    void startStatusPublisher();
     void publishPath();
-    virtual void publishState(){};
+    virtual void publishState();
     virtual void publishResult(PlannerResult result);
     virtual void publishExecutionStatus(){};
     virtual void stopPublishers(){};

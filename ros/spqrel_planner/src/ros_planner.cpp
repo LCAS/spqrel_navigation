@@ -20,6 +20,7 @@ namespace spqrel_navigation {
     _reset_topic = "reset";
     _cmd_vel_topic = "cmd_vel";
     _path_topic = "path";
+    _status_topic = "planner_state";
     _static_map_service = "static_map";
       
     _forced_max_range = 10;
@@ -333,6 +334,10 @@ namespace spqrel_navigation {
   void ROSPlanner::startPathPublisher(){
     _path_pub = _nh.advertise<nav_msgs::Path>(_path_topic, 1);
   }
+
+  void ROSPlanner::startStatusPublisher(){
+    _status_pub = _nh.advertise<std_msgs::String>(_status_topic, 1);
+  }
   
   void ROSPlanner::publishPath(){
     nav_msgs::Path path;
@@ -362,7 +367,6 @@ namespace spqrel_navigation {
       path.poses[i] = pose;
     }
 
-
     _path_pub.publish(path);
 
   }
@@ -379,6 +383,14 @@ namespace spqrel_navigation {
       return;
     }
   }
+
+
+  void ROSPlanner::publishState() {
+    std_msgs::String msg;
+    msg.data = status;
+    _status_pub.publish(msg);
+  }
+
   
   void ROSPlanner::requestMap(){
     // get map via RPC

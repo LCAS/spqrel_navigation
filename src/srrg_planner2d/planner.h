@@ -110,7 +110,8 @@ namespace srrg_planner {
     virtual void init();
     virtual void runOnce();
     
-    
+    std::string status;
+
   protected:
 
     inline Eigen::Vector2i world2grid(const Eigen::Vector2f p) {
@@ -197,6 +198,7 @@ namespace srrg_planner {
     virtual void startCmdVelPublisher() = 0;
     virtual void startPathPublisher() = 0;
     virtual void startResultPublisher() = 0;
+    virtual void startStatusPublisher() = 0;
     virtual void publishPath() = 0;
     virtual void publishState() = 0;
     virtual void publishResult(PlannerResult result) = 0;

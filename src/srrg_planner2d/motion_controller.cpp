@@ -20,6 +20,9 @@ MotionController::MotionController(){
   _goal_translation_tolerance = 0.2;
   _goal_rotation_tolerance = 0.3;
 
+  _force = 1.5;
+  _orienting = false;
+
 }
 
 void MotionController::_updateParameters(){
@@ -57,7 +60,7 @@ void MotionController::_movementGenerator(Eigen::Vector2f& F, float& v, float& w
 // adapting v and w according to angle to goal
 void MotionController::adjustVel(float &v, float &w, float angle_goal) {
 
-    //printf("adjust vel %.3f %.3f  (angle_goal: %.3f)", v,w,angle_goal);
+    // printf(" ++ adjust vel %.3f %.3f  (angle_goal: %.3f)", v,w,angle_goal);
 
     float delta_slow_down = 0.25;
     // Check if angle to the goal greater than a threshold
@@ -66,6 +69,7 @@ void MotionController::adjustVel(float &v, float &w, float angle_goal) {
       if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
         w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
       v = 0; // dont move forward
+      _orienting = true;
     }
     // slow down if close to target
     else if (fabs(angle_goal) > _goal_rotation_tolerance){
@@ -81,6 +85,12 @@ void MotionController::adjustVel(float &v, float &w, float angle_goal) {
       if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
         w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
       v = 0; // dont move forward
+      _orienting = true;
+    }
+    else if (_orienting) {
+        // oriented! stop rotation for 1 cycle
+        w=0;
+        _orienting = false;
     }
 
     // printf(" -> %.3f %.3f\n", v, w);
@@ -95,11 +105,16 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
   Eigen::Vector2f robot_pose_xy(robot_pose.x(), robot_pose.y());
   Eigen::Vector2f distance_goal = goal_xy - robot_pose_xy;
 
+  //std::cerr << " -- goal: " << goal_xy.transpose()  << " -- robot: " << robot_pose_xy.transpose() 
+  //      << " - distance_goal: " << distance_goal.transpose() << std::endl;
+
   if (distance_goal.norm() > _goal_translation_tolerance){
+    // Far from target goal
     float angle_goal = normalize(atan2(distance_goal.y(), distance_goal.x()) - robot_pose.z());
     
-    float force = 1.5;
-    Eigen::Vector2f F(force*cos(angle_goal), force*sin(angle_goal));
+    //std::cerr << " -- angle_goal: " << angle_goal << std::endl;
+
+    Eigen::Vector2f F(_force*cos(angle_goal), _force*sin(angle_goal));
 
     float v, w;
     _movementGenerator(F, v, w);
@@ -143,8 +158,11 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
   Eigen::Vector2f goal_xy(goal_xytheta.x(), goal_xytheta.y());
   Eigen::Vector2f distance_goal = goal_xy - robot_pose_xy;
 
+  // std::cerr << " -- goal: " << goal_xy.transpose()  << " -- robot: " << robot_pose_xy.transpose() 
+  //      << " - distance_goal: " << distance_goal.transpose() << std::endl;
+
   float angle_goal;
-  float force = 1.5;
+  
   if (distance_goal.norm() < _goal_translation_tolerance){
     // We are close enough to the goal
     // Checking orientation with goal for final rotation movement
@@ -154,7 +172,7 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
     if (fabs(angle_goal) > _goal_rotation_tolerance){
       // Robot is not oriented, computing angular vel
       
-      Eigen::Vector2f F(force*cos(angle_goal), force*sin(angle_goal));
+      Eigen::Vector2f F(_force*cos(angle_goal), _force*sin(angle_goal));
       float v, w;
       _movementGenerator(F, v, w);
 
@@ -166,9 +184,13 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
       reached = true;
     }
   } else {
+    // Far from target goal
     angle_goal = normalize(atan2(distance_goal.y(), distance_goal.x()) - robot_pose.z());
 
-    Eigen::Vector2f F(force*cos(angle_goal), force*sin(angle_goal));
+    // std::cerr << " -- angle_goal: " << angle_goal << std::endl;
+
+
+    Eigen::Vector2f F(_force*cos(angle_goal), _force*sin(angle_goal));
     float v, w;
     _movementGenerator(F, v, w);
 
@@ -184,17 +206,6 @@ bool MotionController::computeVelocities(const Eigen::Vector3f& robot_pose, cons
         w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
       velocities.y() = w;
     }
-    // slow down if close to target
-    else if (fabs(angle_goal) > _goal_rotation_tolerance){
-      int sign = (w>=0)?+1:-1;
-      float w1 = w;
-      w = sign * ( fabs(w) * (fabs(angle_goal) - _goal_rotation_tolerance)/(0.2 * _goal_rotation_tolerance) + 2 * _min_angular_vel);
-      printf("slow down rotation %.3f -> %.3f\n", w1,w);
-      if (fabs(w) > 0 && fabs(w) < _min_angular_vel)
-        w = (w < 0 ? -_min_angular_vel : _min_angular_vel);
-      velocities.y() = w;
-    }
-
     else {
       // Otherwise the velocities computed are returned
       velocities.x() = v;

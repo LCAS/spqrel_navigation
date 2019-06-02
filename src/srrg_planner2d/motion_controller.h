@@ -79,5 +79,8 @@ protected:
   float _prev_linear_vel, _prev_angular_vel;
 
   float _goal_translation_tolerance, _goal_rotation_tolerance;
+
+  float _force;
+  bool _orienting;
   
 };

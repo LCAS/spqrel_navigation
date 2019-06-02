@@ -407,10 +407,16 @@ namespace srrg_planner {
 
     status = "running";
 
-    std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point time_start, time_end, time_dmap_start, time_dmap_end, 
+        time_path_start, time_path_end, time_other1_start, time_other1_end, time_other2_start, time_other2_end,
+        time_control_start, time_control_end, time_vel_start, time_vel_end;
 
+
+    time_start = std::chrono::steady_clock::now();              // TIME_START
+
+    
     //Adding obstacles
-    std::chrono::steady_clock::time_point time_dmap_start = std::chrono::steady_clock::now();
+    time_dmap_start = std::chrono::steady_clock::now();         // TIME_DMAP_START
     _distance_map.data()=_distance_map_backup;
 
     if (_laser_points.size()>0) {
@@ -433,16 +439,19 @@ namespace srrg_planner {
     _distance_image = _dmap_calculator.distanceImage()*_map_resolution;
     distances2cost(_cost_image, _distance_image, _robot_radius, _safety_region, _min_cost, _max_cost);
 
-    std::chrono::steady_clock::time_point time_dmap_end = std::chrono::steady_clock::now();
-    if (verbose())
-        std::cerr << "DMapCalculator: "
-	      << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;
+    time_dmap_end = time_path_start = std::chrono::steady_clock::now();           // TIME_DMAP_END = TIME_PATH_START 
+
 
     computePath(_cost_image, _path_map, _goal_pixel, _obstacle_path);
+
+    time_path_end = std::chrono::steady_clock::now();           // TIME_PATH_END = TIME_OTHER_START 
 
     _path = _obstacle_path;
 
     if (!_path.size()){
+
+      time_other1_start = std::chrono::steady_clock::now();     // TIME_OTHER1_START
+
       if (_robot_pose_pixel == _goal_pixel){
 	    // Path is zero because robot is on the goal
 	    publishResult(GoalReached);
@@ -456,30 +465,71 @@ namespace srrg_planner {
 	      cancelGoal();	  
 	    }
       }
+
+
+      time_other1_end = std::chrono::steady_clock::now();       // TIME_OTHER1_END
+
     } else {
+
+
+      time_control_start = std::chrono::steady_clock::now();     // TIME_CONTROL_START
+     
 
       if (_on_recovery_time)
         _on_recovery_time = false; //Path was found after recoveryTime
       
       bool goal_reached = computeControlToWaypoint(_have_goal_with_angle);
       
+      time_control_end = time_other2_start = std::chrono::steady_clock::now();     // TIME_CONTROL_END = TIME_OTHER2_START
+
       if (goal_reached){
         publishResult(GoalReached);
         status = "goal_reached";
         cancelGoal();
       } else {
-        if (moveEnabled())
+        if (moveEnabled()) {
+
+          time_vel_start = std::chrono::steady_clock::now();
           applyVelocities();
+          time_vel_end = std::chrono::steady_clock::now();
+
+        }
         else 
           _motion_controller.resetVelocities();
       }
+
+      time_other2_end = std::chrono::steady_clock::now();       // TIME_OTHER2_END
+
     }
 
-    std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
-    int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
-    if (verbose())
-        std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
- 
+    time_end = std::chrono::steady_clock::now();                // TIME_END
+
+    if (verbose()) {
+        
+        int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count(); 
+
+        if (cycle_ms>10) {
+            std::cerr << "  -- DMapCalculator: "
+	          << std::chrono::duration_cast<std::chrono::milliseconds>(time_dmap_end - time_dmap_start).count() << " ms" << std::endl;    
+
+            std::cerr << "  -- ComputePath: "
+	          << std::chrono::duration_cast<std::chrono::milliseconds>(time_path_end - time_path_start).count() << " ms" << std::endl; 
+
+            std::cerr << "  -- Control: "
+	          << std::chrono::duration_cast<std::chrono::milliseconds>(time_control_end - time_control_start).count() << " ms" << std::endl; 
+
+            std::cerr << "  -- Velocity: "
+	          << std::chrono::duration_cast<std::chrono::milliseconds>(time_vel_end - time_vel_start).count() << " ms" << std::endl; 
+
+            std::cerr << "  -- Other stuff: "
+	          << std::chrono::duration_cast<std::chrono::milliseconds>(time_other1_end - time_other1_start).count()  << " ms " 
+              << std::chrono::duration_cast<std::chrono::milliseconds>(time_other2_end - time_other2_start).count()  << " ms " 
+              << std::endl; 
+
+            std::cerr << "Total Cycle " << cycle_ms << " ms" << std::endl << std::endl; 
+        } 
+    }
+
   }
 
   void Planner::computePath(FloatImage& cost_map, PathMap& path_map, Eigen::Vector2i& goal, Vector2iVector &path){

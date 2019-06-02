@@ -127,7 +127,6 @@ namespace spqrel_navigation {
     vel.linear.x = velocities().x();
     vel.angular.z = velocities().y();
     _cmd_vel_pub.publish(vel);
-    ros::spinOnce();
   }
 
   void ROSPlanner::subscribeLaserWithPose(){

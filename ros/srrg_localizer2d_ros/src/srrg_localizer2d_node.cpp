@@ -107,7 +107,6 @@ int main(int argc, char **argv){
   if (ros::ok())
     startLocalizer(localizer, private_nh);
 
-
   //run baby run
   ros::spin();
   return 0;

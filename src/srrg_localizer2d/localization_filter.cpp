@@ -2,6 +2,7 @@
 #include "srrg_path_map/distance_map_path_search.h"
 #include <cmath>
 #include <iostream>
+
 namespace srrg_localizer2d {
   using namespace srrg_core;
   using namespace std;
@@ -15,7 +16,7 @@ namespace srrg_localizer2d {
 
   LocalizationFilter::LocalizationFilter(){
     _min_update_translation=0.1;
-    _min_update_rotation=0.1;
+    _min_update_rotation=0.02;
 
     // transition_model
     _noise_coeffs << 
@@ -33,9 +34,9 @@ namespace srrg_localizer2d {
 
 
   void LocalizationFilter::setMap(const UnsignedCharImage& m, 
-			 float resolution,
-			 unsigned char occ_threshold,
-			 unsigned char free_threshold) {
+             float resolution,
+             unsigned char occ_threshold,
+             unsigned char free_threshold) {
     _resolution=resolution;
     _inverse_resolution = 1./resolution;
     _map=m.clone();
@@ -52,24 +53,24 @@ namespace srrg_localizer2d {
       unsigned char* src_ptr = _map.ptr<unsigned char>(r);
       int* dest_ptr = _int_map.ptr<int>(r);
       for (int c = 0; c<_map.cols; c++) {
-	unsigned char cell=*src_ptr;
-	int v=-1;
-	if (cell<occ_threshold) {
-	  occ_count++;
-	  v=k++;
-	  *src_ptr=0;
-	} else if (cell>free_threshold) {
-	  free_count++;
-	  v=-1;
-	  *src_ptr=255;
-	} else {
-	  unknown_count++;
-	  v=-2;
-	  *src_ptr=127;
-	}
-	*dest_ptr=v;
-	dest_ptr++;
-	src_ptr++;
+        unsigned char cell=*src_ptr;
+        int v=-1;
+        if (cell<occ_threshold) {
+          occ_count++;
+          v=k++;
+          *src_ptr=0;
+        } else if (cell>free_threshold) {
+          free_count++;
+          v=-1;
+          *src_ptr=255;
+        } else {
+          unknown_count++;
+          v=-2;
+          *src_ptr=127;
+        }
+        *dest_ptr=v;
+        dest_ptr++;
+        src_ptr++;
       }
     }
     cerr << "free: " << free_count << endl;
@@ -81,10 +82,10 @@ namespace srrg_localizer2d {
 
 
   void LocalizationFilter::init(int num_particles,
-		       float dmax, 
-		       float robot_radius,
-		       float min_weight,
-		       int min_valid_points){
+               float dmax, 
+               float robot_radius,
+               float min_weight,
+               int min_valid_points){
     _particles.resize(num_particles);
     _robot_radius = robot_radius;
     _min_valid_points = min_valid_points;
@@ -113,11 +114,11 @@ namespace srrg_localizer2d {
       const unsigned char *map_cell = _map.ptr<const unsigned char>(r);
       const float* distance=_distances.ptr<const float>(r);
       for (int c = 0; c<_map.cols; ++c, ++map_cell, ++distance) {
-	//cerr << *distance <<  " ";
-	if (*distance>_robot_radius) {
-	  _free_cells[k]=(Eigen::Vector2f(_resolution*r, _resolution*c));
-	  k++;
-	}
+        //cerr << *distance <<  " ";
+        if (*distance>_robot_radius) {
+          _free_cells[k]=(Eigen::Vector2f(_resolution*r, _resolution*c));
+          k++;
+        }
       }
     }
     _free_cells.resize(k);
@@ -142,7 +143,7 @@ namespace srrg_localizer2d {
     for (size_t i = 0; i<_particles.size(); i++){
       Eigen::Vector3f noise;
       for (int k = 0; k<3; k++)
-	noise[k] = standard_deviations[k]*_normal_generator(_random_generator);
+        noise[k] = standard_deviations[k]*_normal_generator(_random_generator);
       _particles[i]._pose = t2v(pose_transform*v2t(noise));
       _particles[i]._weight = 1;
     }
@@ -181,10 +182,10 @@ namespace srrg_localizer2d {
     for (int i=0; i<n; i++, w++){
       cumulative_value += (*w) *inverse_acc;
       while(cumulative_value>threshold){
-	*idx = i;
-	idx++;
-	k++;
-	threshold += step;
+        *idx = i;
+        idx++;
+        k++;
+        threshold += step;
       }
     }
   }
@@ -195,7 +196,7 @@ namespace srrg_localizer2d {
  
     // if the platform did not move enough, do nothing
     if (!_force_update && (_cumulative_rotation<_min_update_rotation &&
-	_cumulative_translation < _min_update_translation))
+    _cumulative_translation < _min_update_translation))
       return 0;
 
     _force_update = false;
@@ -210,8 +211,8 @@ namespace srrg_localizer2d {
       // if the weight is 0 and replace the particle with a random one,
       // otherwise assign a weight to a particle, based on the likelihood
       if (w==0 && _particle_resetting) {
-	w=_min_weight;
-	_particles[i]._pose = sampleFromFreeSpace();
+        w=_min_weight;
+        _particles[i]._pose = sampleFromFreeSpace();
       } 
       _particles[i]._weight = w;
       _cumulative_likelihood += w;;
@@ -256,7 +257,7 @@ namespace srrg_localizer2d {
       int r = _particles[i]._pose.x()*ires;
       int c = _particles[i]._pose.y()*ires;
       if (! _distance_map.inside(r,c))
-	continue;
+        continue;
       count++;
       img.at<cv::Vec3b>(r,c)=cv::Vec3b(0,0,255);
     }
@@ -269,12 +270,12 @@ namespace srrg_localizer2d {
       int r = ep.x()*ires;
       int c = ep.y()*ires;
       if (! _distance_map.inside(r,c))
-	continue;
+        continue;
       cv::Scalar color(255,0,0);
       if (_endpoint_distances[i]<0)
-	color=cv::Scalar(0,255,255);
+        color=cv::Scalar(0,255,255);
       else if (_endpoint_distances[i]<0.3)
-	color=cv::Scalar(0,255,0);
+        color=cv::Scalar(0,255,0);
       cv::circle(img, cv::Point(c,r), 2, color);
     }
   }
@@ -320,7 +321,7 @@ namespace srrg_localizer2d {
       Eigen::Vector3f dp = _particles[i]._pose-_mean;
       dp[2]=fmod(dp[2], 2*M_PI);
       if (dp[2]>M_PI)
-	dp[2]-=M_PI;
+        dp[2]-=M_PI;
       _covariance+=dp*dp.transpose();
     }
     _covariance*=1./_particles.size();
@@ -355,10 +356,10 @@ namespace srrg_localizer2d {
       p = world2grid(iso*observation[i]);
       *dist_ptr=-1;
       if (! _distance_map.inside(p.x(), p.y()))
-	continue;
+        continue;
       float distance = fabs(_distances.at<float>(p.x(),p.y()));
       if (distance!=distance)
-	throw std::runtime_error("nan detected");
+        throw std::runtime_error("nan detected");
       *dist_ptr=distance;
       cumulative_distance+=fabs(_distances.at<float>(p.x(),p.y()));
       valid_points++;
@@ -378,3 +379,4 @@ namespace srrg_localizer2d {
   }
 
 }
+

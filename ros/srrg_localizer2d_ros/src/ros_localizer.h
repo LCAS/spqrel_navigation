@@ -155,6 +155,8 @@ namespace srrg_localizer2d_ros{
     bool _set_pose;          //! set_pose mode (to be toggled with "s")
 
     bool _tf_timecheck;      //! if tf times are checked
+
+    int _cnt_not_updated;    //! how monay cycles without updates
   };
 
 

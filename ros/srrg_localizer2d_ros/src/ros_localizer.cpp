@@ -32,6 +32,7 @@ namespace srrg_localizer2d_ros{
     _last_timer_slot=0;
     _laser_pose.setZero();
     _tf_timecheck = true;
+    _cnt_not_updated = 0;
   }
 
   void ROSLocalizer::setTFTimeCheck(bool tf_timecheck) {
@@ -80,6 +81,7 @@ namespace srrg_localizer2d_ros{
 
   void ROSLocalizer::laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
     _last_observation_time = msg->header.stamp;
+
 
     std::string error;
 
@@ -189,6 +191,17 @@ namespace srrg_localizer2d_ros{
     Vector2fVector endpoints(msg->ranges.size());
     rangesToEndpoints(endpoints, laser_pose, msg);
     bool updated = update(endpoints);
+
+    // std::cerr << "  -- localizer updated: " << updated << std::endl;
+    
+    if (!updated) {
+        _cnt_not_updated++;
+        if (_cnt_not_updated>20) // force localization update every 20 cycles
+            forceUpdate();
+    }
+    else
+        _cnt_not_updated = 0;
+
     computeStats();
     publishPose();
     publishRanges();
@@ -339,16 +352,16 @@ namespace srrg_localizer2d_ros{
     int k=0;
     for(int c=0; c<map_image.cols; c++) {
       for(int r=0; r<map_image.rows; r++) {
-	int d=msg.data[k];
-	if (d<0) {
-	  d=127;
-	}
-	else if(d>=50)
-	  d=0;
-	else
-	  d=255;
-	map_image.at<unsigned char>(r,c)=(unsigned char)(d);
-	k++;
+	    int d=msg.data[k];
+	    if (d<0) {
+	      d=127;
+	    }
+	    else if(d>=50)
+	      d=0;
+	    else
+	      d=255;
+	    map_image.at<unsigned char>(r,c)=(unsigned char)(d);
+	    k++;
       }
     }
     setMap(map_image, msg.info.resolution, 10, 230);
@@ -393,8 +406,9 @@ namespace srrg_localizer2d_ros{
     setPose(map_pose);
     _restarted=true;
   }
+
   void ROSLocalizer::setInitialPose(float x, float y,float theta) {
-      Eigen::Vector3f new_pose(x,y,theta);
+    Eigen::Vector3f new_pose(x,y,theta);
     ROS_INFO("Setting pose (%.6f): %.3f %.3f %.3f",
          ros::Time::now().toSec(),
          new_pose.x(),
@@ -416,10 +430,9 @@ namespace srrg_localizer2d_ros{
     cloud_msg.poses.resize(_particles.size());
     Eigen::Isometry2f origin=v2t(_map_origin);
     for(size_t i=0;i<particles().size();i++){
-      Eigen::Vector3f p=t2v(origin*v2t(_particles[i]._pose));
-     
-	tf::poseTFToMsg(tf::Pose(tf::createQuaternionFromYaw(p.z()),
-				 tf::Vector3(p.x(),p.y(),0)), cloud_msg.poses[i]);
+        Eigen::Vector3f p=t2v(origin*v2t(_particles[i]._pose));
+	    tf::poseTFToMsg(tf::Pose(tf::createQuaternionFromYaw(p.z()),
+				        tf::Vector3(p.x(),p.y(),0)), cloud_msg.poses[i]);
       }
     _particlecloud_pub.publish(cloud_msg);
   }
@@ -447,7 +460,7 @@ namespace srrg_localizer2d_ros{
     // Copy in the covariance, converting from 3-D to 6-D
     for(int i=0; i<2; i++) {
       for(int j=0; j<2; j++) {
-	p.pose.covariance[6*i+j] = _covariance(i,j);
+	    p.pose.covariance[6*i+j] = _covariance(i,j);
       }
     }
     p.pose.covariance[6*5+5] = _covariance(2,2);
@@ -503,3 +516,4 @@ namespace srrg_localizer2d_ros{
     _ranges_pub.publish(localizer_ranges);
   }
 }
+

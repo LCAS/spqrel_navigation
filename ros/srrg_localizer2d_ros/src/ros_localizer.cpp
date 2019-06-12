@@ -195,9 +195,10 @@ namespace srrg_localizer2d_ros{
     // std::cerr << "  -- localizer updated: " << updated << std::endl;
     
     if (!updated) {
-        _cnt_not_updated++;
-        if (_cnt_not_updated>20) // force localization update every 20 cycles
+        if (_cnt_not_updated<20) { // force localization update for 20 cycles
             forceUpdate();
+            _cnt_not_updated++;
+        }
     }
     else
         _cnt_not_updated = 0;

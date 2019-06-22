@@ -178,6 +178,8 @@ namespace spqrel_navigation {
             continue;
         if (r>=max_range)
             continue;
+        if (angle<-(M_PI/2)*0.9 || angle>(M_PI/2)*0.9)  // LI: look only forward
+            continue;
         Eigen::Vector2f dir(cos(angle), sin(angle));
         Eigen::Vector2f ep=laser_transform*(dir*r);
         Eigen::Vector2f delta = last_endpoint-ep;

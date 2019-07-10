@@ -56,7 +56,7 @@ namespace srrg_localizer2d_ros{
     //! call this when all is in place, AND the map is loaded (either via direct setMap function or
     //! by calling the requestMap service)
     void subscribeCallbacks(const std::string& laser_topic="/base_scan");
-    
+
     //! requests a map via rpc
     void requestMap();
 
@@ -66,19 +66,22 @@ namespace srrg_localizer2d_ros{
     //! Set flag to check for tf timing
     void setTFTimeCheck(bool tf_timecheck);
 
+    inline void setInvertedLaser(const bool inverted_laser) {_inverted_laser=inverted_laser;}
+
   protected:
-    
+
     tf::TransformListener* _listener; //< listener object uset do compute the relative laser transform and to listen to odom
     tf::TransformBroadcaster* _broadcaster; //< used to send the transform map->odom
     std::string _laser_topic;   //< laser topic to be used for localization
     std::string _odom_frame_id; //< odom frame id, used to compute the control of the filter
-    std::string _base_frame_id; //< frame of the robot 
+    std::string _base_frame_id; //< frame of the robot
     std::string _global_frame_id;  //< frame of the map
 
-    Eigen::Vector3f _old_odom_pose; //< stores the previous odom pose, used to compute the control 
+    Eigen::Vector3f _old_odom_pose; //< stores the previous odom pose, used to compute the control
     Eigen::Vector3f _laser_pose; //< stores the laser pose from the system
     bool _has_laser_pose;
     bool _restarted; //<
+    bool _inverted_laser;
 
     std::vector<double> _timers; //< holds the update time of the last n cycles
     size_t _last_timer_slot; // the current update cycle
@@ -91,16 +94,16 @@ namespace srrg_localizer2d_ros{
     ros::Publisher _ranges_pub; //< localizer_ranges_publisher
     ros::Subscriber _initial_pose_sub; //< subscriber for the set_pose
     ros::ServiceServer _global_loc_srv; //< service for global localization
-    ros::Time _last_observation_time;   //< stores the last time an observation has been processed, 
+    ros::Time _last_observation_time;   //< stores the last time an observation has been processed,
                                         //<to keep the timestamps of the transforms consistent
 
     ros::NodeHandle& _nh;             //< global node handle
 
-    
-    Eigen::Vector3f _map_origin;    //< world coordinates of the upper left pixel 
+
+    Eigen::Vector3f _map_origin;    //< world coordinates of the upper left pixel
 
     //! converts a range scan into a vector of regularized endpoints
-    //! @param endpoints: a vector2fvector containing the cartesian 
+    //! @param endpoints: a vector2fvector containing the cartesian
     //!                   written by the method coordinares of the regularized endpoints
     //! @paeam laser_pose: pose of the laser on the robot
     //! @param msg: the laser message to be processed
@@ -119,7 +122,7 @@ namespace srrg_localizer2d_ros{
 
     //! handles a laser scan and updates the filter
     void laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
-    
+
     //! handles the set-pose-estimate message from outside
     //! puts all partcles in the neighborhood of the pose in msg
     void setPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
@@ -136,7 +139,7 @@ namespace srrg_localizer2d_ros{
     //! when in set_pose mode, left click sets the pose
     //! right click sets the orientation
     static void onMouse( int event, int x, int y, int, void* );
-    
+
     //! handles the keyboard
     //!  "s": toggles setPose mode
     //!  "d": toggles map mode (distance/occupancy)
@@ -151,7 +154,7 @@ namespace srrg_localizer2d_ros{
     void handleGUIDisplay();
     bool _use_gui;           //! handled internally
     bool _show_distance_map; //! if 1 in the gui shows the distance map. (to be toggled with "d")
-    bool _force_redisplay;   //! if toggled to one forces the display and sends out all messages 
+    bool _force_redisplay;   //! if toggled to one forces the display and sends out all messages
     bool _set_pose;          //! set_pose mode (to be toggled with "s")
 
     bool _tf_timecheck;      //! if tf times are checked

@@ -60,20 +60,26 @@ namespace srrg_localizer2d_ros{
     double angle=msg->angle_min-msg->angle_increment;
     float max_range = (msg->range_max<_forced_max_range) ? msg->range_max : _forced_max_range;
     Eigen::Vector2f last_endpoint(-1000, -1000);
-    for (size_t i=0; i<msg->ranges.size(); i++){
-      float r=msg->ranges[i];
+
+    std::vector<float> ranges = msg->ranges;
+    if (_inverted_laser){
+      std::reverse(ranges.begin(), ranges.end());
+    }
+
+    for (size_t i=0; i<ranges.size(); i++){
+      float r=ranges[i];
       angle+=msg->angle_increment;
       if (r<msg->range_min)
-	continue;
+        continue;
       if (r>=max_range)
-	continue;
+        continue;
       Eigen::Vector2f dir(cos(angle), sin(angle));
       Eigen::Vector2f ep=laser_transform*(dir*r);
       Eigen::Vector2f delta = last_endpoint-ep;
       if (delta.squaredNorm()>_squared_endpoint_distance) {
-	endpoints[k]=ep;
-	last_endpoint = ep;
-	k++;
+        endpoints[k]=ep;
+        last_endpoint = ep;
+        k++;
       }
     }
     endpoints.resize(k);
@@ -87,18 +93,18 @@ namespace srrg_localizer2d_ros{
 
 #if 0
     // laser pose on robot
-    if (! _listener->waitForTransform (_base_frame_id, 
-				       msg->header.frame_id, 
-				       _last_observation_time, 
-				       ros::Duration(0.5), 
+    if (! _listener->waitForTransform (_base_frame_id,
+				       msg->header.frame_id,
+				       _last_observation_time,
+				       ros::Duration(0.5),
 				       ros::Duration(0.5), &error)) {
       //cerr << "ROSLocalizer: transform error from " << _base_frame_id << " to " << msg->header.frame_id << " : " << error << endl;
       //return;
     }
     tf::StampedTransform laser_pose_t;
-    _listener->lookupTransform(_base_frame_id, 
-			       msg->header.frame_id, 
-			       ros::Time(0), // _last_observation_time, 
+    _listener->lookupTransform(_base_frame_id,
+			       msg->header.frame_id,
+			       ros::Time(0), // _last_observation_time,
 			       laser_pose_t);
 #endif
 
@@ -126,19 +132,19 @@ namespace srrg_localizer2d_ros{
 
 #if 0
     // odometry
-    if (! _listener->waitForTransform (_odom_frame_id, 
+    if (! _listener->waitForTransform (_odom_frame_id,
 				       _base_frame_id,
-				       _last_observation_time, 
-				       ros::Duration(0.5), 
-				       ros::Duration(0.5), 
+				       _last_observation_time,
+				       ros::Duration(0.5),
+				       ros::Duration(0.5),
 				       &error)) {
       //cerr << "ROSLocalizer: transform error from " << _odom_frame_id << " to " << _base_frame_id << " : " << error << endl;
       //return;
     }
     tf::StampedTransform odom_pose_t;
-    _listener->lookupTransform(_odom_frame_id, 
+    _listener->lookupTransform(_odom_frame_id,
 			       _base_frame_id,
-			       ros::Time(0), // _last_observation_time, 
+			       ros::Time(0), // _last_observation_time,
 			       odom_pose_t);
 #endif
 
@@ -146,7 +152,7 @@ namespace srrg_localizer2d_ros{
     tf::StampedTransform odom_pose_t;
     try {
       _listener->waitForTransform(_odom_frame_id, _base_frame_id,
-				 _last_observation_time, 
+				 _last_observation_time,
 				 ros::Duration(0.5), ros::Duration(0.5), &error);
       if (_tf_timecheck)
         _listener->lookupTransform(_odom_frame_id, _base_frame_id,
@@ -165,11 +171,11 @@ namespace srrg_localizer2d_ros{
 
 #if 0
 // LI what's for???
-    if (! _listener->waitForTransform (_base_frame_id, 
-				       msg->header.frame_id, 
-				       _last_observation_time, 
-				       ros::Duration(0.5), 
-				       ros::Duration(0.5), 
+    if (! _listener->waitForTransform (_base_frame_id,
+				       msg->header.frame_id,
+				       _last_observation_time,
+				       ros::Duration(0.5),
+				       ros::Duration(0.5),
 				       &error)) {
       cerr << "error: " << error << endl;
       return;
@@ -193,7 +199,7 @@ namespace srrg_localizer2d_ros{
     bool updated = update(endpoints);
 
     // std::cerr << "  -- localizer updated: " << updated << std::endl;
-    
+
     if (!updated) {
         if (_cnt_not_updated<20) { // force localization update for 20 cycles
             forceUpdate();
@@ -206,8 +212,8 @@ namespace srrg_localizer2d_ros{
     computeStats();
     publishPose();
     publishRanges();
-    // printf("seq: %d, ts:%.9lf, [%f %f %f] [%f %f %f]\n", 
-    // 	   msg->header.seq, 
+    // printf("seq: %d, ts:%.9lf, [%f %f %f] [%f %f %f]\n",
+    // 	   msg->header.seq,
     // 	   _last_observation_time.toSec(),
     // 	   odom_pose.x(),
     // 	   odom_pose.y(),
@@ -215,7 +221,7 @@ namespace srrg_localizer2d_ros{
     // 	   _mean.x(),
     // 	   _mean.y(),
     // 	   _mean.z());
-    
+
     _force_redisplay|=updated;
     if (_restarted || _force_redisplay)
       publishParticles();
@@ -241,21 +247,21 @@ namespace srrg_localizer2d_ros{
 
     char key=cv::waitKey(10);
     switch(key) {
-    case 'g': 
+    case 'g':
       cerr << "starting global localization" << endl;
       _restarted = true;
       startGlobal();
       break;
-    case 'd': 
+    case 'd':
       _show_distance_map = ! _show_distance_map;
       cerr << "toggle distance map: " << _show_distance_map << endl;
       _force_redisplay=true;
       break;
-    case 'r': 
+    case 'r':
       setParticleResetting(! particleResetting());
       cerr << "particle resetting = " << particleResetting();
       break;
-    case 's': 
+    case 's':
       _set_pose=!_set_pose;
       cerr << "set pose is " << _set_pose << endl;
       _force_redisplay=true;
@@ -275,16 +281,16 @@ namespace srrg_localizer2d_ros{
       cv::putText(img, buf, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
       sprintf(buf, " Latency/cycle: %f [ms]", cycleLatency());
       cv::putText(img, buf, cv::Point(20, 90), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
-      
+
 
  // dynamic_restart: %d\n particles: %d\n inliers: %d",
  // 	      _set_pose, particleResetting(), (int) _particles.size(), 1000);
  //      std::string status_str(status);
  //      cv::putText(img, status_str, cv::Point(10, 10), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(200,0,200), 1);
       cv::imshow("srrg_localizer", img);
-   }  
+   }
    _force_redisplay=false;
-   
+
   }
 
   void ROSLocalizer::onMouse( int event, int x, int y, int, void* v)
@@ -309,7 +315,7 @@ namespace srrg_localizer2d_ros{
       n->setPose(mean);
       n->_force_redisplay=true;
     }
-    
+
   }
 
   void ROSLocalizer::subscribeCallbacks(const std::string& laser_topic){
@@ -317,7 +323,7 @@ namespace srrg_localizer2d_ros{
     _laser_topic=laser_topic;
     _laser_sub=_nh.subscribe(_laser_topic, 10, &ROSLocalizer::laserCallback, this);
     _initial_pose_sub = _nh.subscribe("initialpose", 2, &ROSLocalizer::setPoseCallback, this);
-    _global_loc_srv = _nh.advertiseService("global_localization", 
+    _global_loc_srv = _nh.advertiseService("global_localization",
 					   &ROSLocalizer::globalLocalizationCallback,
 					   this);
 
@@ -341,7 +347,7 @@ namespace srrg_localizer2d_ros{
       d.sleep();
     }
 
-    if (!ros::ok()) 
+    if (!ros::ok())
       ros::shutdown();
     else
       mapMessageCallback(resp.map);
@@ -381,7 +387,7 @@ namespace srrg_localizer2d_ros{
   }
 
   bool ROSLocalizer::globalLocalizationCallback(std_srvs::Empty::Request& req,
-					         std_srvs::Empty::Response& res) {    
+					         std_srvs::Empty::Response& res) {
     startGlobal();
     _restarted=true;
     return true;
@@ -395,7 +401,7 @@ namespace srrg_localizer2d_ros{
     Eigen::Vector3f new_pose(pose.getOrigin().x(),
 			     pose.getOrigin().y(),
 			     getYaw(pose));
-    
+
     ROS_INFO("Setting pose (%.6f): %.3f %.3f %.3f",
 	     ros::Time::now().toSec(),
 	     new_pose.x(),
@@ -517,4 +523,3 @@ namespace srrg_localizer2d_ros{
     _ranges_pub.publish(localizer_ranges);
   }
 }
-

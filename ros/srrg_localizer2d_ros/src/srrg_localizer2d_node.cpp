@@ -56,6 +56,11 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   private_nh.param("laser_topic", laser_topic, std::string("base_scan"));
   cerr << "[string] _laser_topic: " << laser_topic << endl;
 
+  bool inverted_laser;
+  private_nh.param("inverted_laser", inverted_laser, false);
+  cerr << "[bool] _inverted_laser: " << inverted_laser << endl;
+  localizer->setInvertedLaser(inverted_laser);
+
   bool tf_timecheck;
   private_nh.param("tf_timecheck", tf_timecheck, true);
   cerr << "[bool] _tf_timecheck: " << tf_timecheck << endl;
@@ -74,7 +79,7 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   } else {
     cerr << "[float] _initial pose_{x,y,a}: not set, starting global localization"<< endl;
   }
-      
+
 
   localizer->init(particles, distance_threshold, 0.2, min_weight, min_valid_beams);
   Eigen::Matrix3f noise_coeffs=localizer->noiseCoeffs();
@@ -87,7 +92,7 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
 
   if  (has_initial_pose){
     localizer->setInitialPose(float(initial_pose[0]),float(initial_pose[1]),float(initial_pose[2]));
-  } else 
+  } else
     localizer->startGlobal();
 }
 
@@ -103,7 +108,7 @@ int main(int argc, char **argv){
   //requests the map
   localizer->requestMap();
 
-  
+
   if (ros::ok())
     startLocalizer(localizer, private_nh);
 

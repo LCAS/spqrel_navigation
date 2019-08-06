@@ -13,6 +13,9 @@
     <arg name="global_frame_id" default="map"/>
     <arg name="laser_topic" default="base_scan"/>
     <arg name="inverted_laser" default="false"/>
+    <arg name="initial_pose_x" default="0.0" />
+    <arg name="initial_pose_y" default="0.0" />
+    <arg name="initial_pose_a" default="0.0" />
     <node name="spqrel_navigation" pkg="spqrel_navigation" type="srrg_localizer2d_node" output="screen">
         <param name="particles" value="$(arg particles)"/>
         <param name="max_range" value="$(arg max_range)"/>
@@ -26,6 +29,9 @@
         <param name="global_frame_id" value="$(arg global_frame_id)"/>
         <param name="laser_topic" value="$(arg laser_topic)"/>
         <param name="inverted_laser" value="$(arg inverted_laser)"/>
+        <param name="initial_pose_x" value="$(arg initial_pose_x)" />
+        <param name="initial_pose_y" value="$(arg initial_pose_y)" />
+        <param name="initial_pose_a" value="$(arg initial_pose_a)" />
         <remap from="base_scan" to="$(arg laser_topic)"/>
     </node>
 </launch>

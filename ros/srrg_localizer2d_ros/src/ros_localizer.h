@@ -44,6 +44,8 @@ namespace srrg_localizer2d_ros{
     inline const std::string& odomFrameId() const { return _odom_frame_id;}
     inline void setOdomFrameId(const std::string fid) {_odom_frame_id=fid;}
     inline const std::string& laserTopic() const {return _laser_topic;}
+    inline void setStaticMapService(const std::string static_map_service) {_static_map_service=static_map_service;}
+    inline const std::string& staticMapService() const {return _static_map_service;}
 
     //! sets/gets the maximum range of a laser, ranges faerther than this are ignored
     inline float forcedMaxRange() const {return _forced_max_range;}
@@ -76,6 +78,7 @@ namespace srrg_localizer2d_ros{
     std::string _odom_frame_id; //< odom frame id, used to compute the control of the filter
     std::string _base_frame_id; //< frame of the robot
     std::string _global_frame_id;  //< frame of the map
+    std::string _static_map_service;  //< name of the static_map service
 
     Eigen::Vector3f _old_odom_pose; //< stores the previous odom pose, used to compute the control
     Eigen::Vector3f _laser_pose; //< stores the laser pose from the system

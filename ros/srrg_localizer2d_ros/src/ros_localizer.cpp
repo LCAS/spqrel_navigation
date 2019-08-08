@@ -338,11 +338,10 @@ namespace srrg_localizer2d_ros{
     nav_msgs::GetMap::Request  req;
     nav_msgs::GetMap::Response resp;
     ROS_INFO("Requesting the map...");
-    string static_map_service = "static_map";
 
-    while(ros::ok() && !ros::service::call(static_map_service, req, resp)){
+    while(ros::ok() && !ros::service::call(_static_map_service, req, resp)){
 
-      ROS_WARN_STREAM("Request for map " << static_map_service << " failed; trying again...");
+      ROS_WARN_STREAM("Request for map " << _static_map_service << " failed; trying again...");
       ros::Duration d(0.5);
       d.sleep();
     }

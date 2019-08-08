@@ -56,6 +56,11 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   private_nh.param("laser_topic", laser_topic, std::string("base_scan"));
   cerr << "[string] _laser_topic: " << laser_topic << endl;
 
+  std::string static_map_service;
+  private_nh.param("static_map_service", static_map_service, std::string("static_map"));
+  cerr << "[string] _static_map_service: " << static_map_service << endl;
+  localizer->setStaticMapService(static_map_service);
+
   bool inverted_laser;
   private_nh.param("inverted_laser", inverted_laser, false);
   cerr << "[bool] _inverted_laser: " << inverted_laser << endl;

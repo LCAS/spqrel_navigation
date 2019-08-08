@@ -60,7 +60,11 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   private_nh.param("static_map_service", static_map_service, std::string("static_map"));
   cerr << "[string] _static_map_service: " << static_map_service << endl;
   localizer->setStaticMapService(static_map_service);
+  cerr << "[string] _static_map_service: " << localizer->staticMapService() << endl;
 
+  //requests the map
+  localizer->requestMap();
+  
   bool inverted_laser;
   private_nh.param("inverted_laser", inverted_laser, false);
   cerr << "[bool] _inverted_laser: " << inverted_laser << endl;
@@ -109,10 +113,6 @@ int main(int argc, char **argv){
 
   //constructs the localizer
   ROSLocalizer* localizer=new ROSLocalizer(n);
-
-  //requests the map
-  localizer->requestMap();
-
 
   if (ros::ok())
     startLocalizer(localizer, private_nh);

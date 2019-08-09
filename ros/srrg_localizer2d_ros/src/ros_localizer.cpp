@@ -20,7 +20,7 @@ namespace srrg_localizer2d_ros{
     _old_odom_pose.setZero();
     _odom_frame_id = "/odom";
     _base_frame_id = "/base_link";
-    _forced_max_range = 10;
+    _forced_max_range = 25;
     _squared_endpoint_distance = 0.1*0.1;
     _show_distance_map = false;
     _force_redisplay=false;

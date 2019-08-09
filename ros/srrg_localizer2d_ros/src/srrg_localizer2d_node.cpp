@@ -14,8 +14,9 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   cerr << "[int] _particles: " << particles << endl;
 
   double max_range;
-  private_nh.param("max_range", max_range, 10.0);
+  private_nh.param("max_range", max_range, 25.0);
   cerr << "[float] _max_range: " << max_range << endl;
+  localizer->setForcedMaxRange(max_range);
 
   int min_valid_beams;
   private_nh.param("min_valid_beams", min_valid_beams, 30);
@@ -60,11 +61,10 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   private_nh.param("static_map_service", static_map_service, std::string("static_map"));
   cerr << "[string] _static_map_service: " << static_map_service << endl;
   localizer->setStaticMapService(static_map_service);
-  cerr << "[string] _static_map_service: " << localizer->staticMapService() << endl;
 
   //requests the map
   localizer->requestMap();
-  
+
   bool inverted_laser;
   private_nh.param("inverted_laser", inverted_laser, false);
   cerr << "[bool] _inverted_laser: " << inverted_laser << endl;

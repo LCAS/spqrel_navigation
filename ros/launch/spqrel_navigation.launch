@@ -14,6 +14,7 @@
     <arg name="laser_topic" default="base_scan"/>
     <arg name="static_map_service" default="static_map"/>
     <arg name="inverted_laser" default="false"/>
+    <arg name="tf_timecheck" default="true"/>
     <arg name="initial_pose_x" default="0.0" />
     <arg name="initial_pose_y" default="0.0" />
     <arg name="initial_pose_a" default="0.0" />
@@ -31,6 +32,7 @@
         <param name="laser_topic" value="$(arg laser_topic)"/>
         <param name="static_map_service" value="$(arg static_map_service)"/>
         <param name="inverted_laser" value="$(arg inverted_laser)"/>
+        <param name="tf_timecheck" value="$(arg tf_timecheck)"/>
         <param name="initial_pose_x" value="$(arg initial_pose_x)" />
         <param name="initial_pose_y" value="$(arg initial_pose_y)" />
         <param name="initial_pose_a" value="$(arg initial_pose_a)" />

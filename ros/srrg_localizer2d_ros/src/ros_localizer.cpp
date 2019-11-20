@@ -117,7 +117,7 @@ namespace srrg_localizer2d_ros{
 
       if (_tf_timecheck)
           _listener->lookupTransform(_base_frame_id, msg->header.frame_id,
-				 msg->header.stamp,
+				 _last_observation_time,
 				 laser_pose_t);
       else
           _listener->lookupTransform(_base_frame_id, msg->header.frame_id,
@@ -156,7 +156,7 @@ namespace srrg_localizer2d_ros{
 				 ros::Duration(0.5), ros::Duration(0.5), &error);
       if (_tf_timecheck)
         _listener->lookupTransform(_odom_frame_id, _base_frame_id,
-				 msg->header.stamp,
+				 _last_observation_time,
 				 odom_pose_t);
       else
         _listener->lookupTransform(_odom_frame_id, _base_frame_id,

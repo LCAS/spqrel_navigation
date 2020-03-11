@@ -4,7 +4,7 @@
     <arg name="particles" default="2000"/>
     <arg name="max_range" default="25"/>
     <arg name="min_valid_beams" default="30"/>
-    <arg name="min_weight" default="200.0"/>
+    <arg name="min_weight" default="0.1"/>
     <arg name="distance_threshold" default="1.0"/>
     <arg name="dynamic_restart" default="false"/>
     <arg name="use_gui" default="false"/>

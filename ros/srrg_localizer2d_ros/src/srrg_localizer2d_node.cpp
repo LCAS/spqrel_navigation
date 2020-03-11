@@ -23,7 +23,7 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   cerr << "[int] _min_valid_beams: " << min_valid_beams << endl;
 
   double min_weight;
-  private_nh.param("min_weight", min_weight, 200.0);
+  private_nh.param("min_weight", min_weight, 0.1);
   cerr << "[float] _min_weight: " << min_weight << endl;
 
   double distance_threshold;

@@ -88,6 +88,7 @@ namespace srrg_localizer2d {
                int min_valid_points){
     _particles.resize(num_particles);
     _robot_radius = robot_radius;
+    _min_weight = min_weight;
     _min_valid_points = min_valid_points;
 
     // computes the distance map

@@ -91,62 +91,33 @@ namespace srrg_localizer2d_ros{
 
     std::string error;
 
-#if 0
-    // laser pose on robot
-    if (! _listener->waitForTransform (_base_frame_id,
-				       msg->header.frame_id,
-				       _last_observation_time,
-				       ros::Duration(0.5),
-				       ros::Duration(0.5), &error)) {
-      //cerr << "ROSLocalizer: transform error from " << _base_frame_id << " to " << msg->header.frame_id << " : " << error << endl;
-      //return;
-    }
-    tf::StampedTransform laser_pose_t;
-    _listener->lookupTransform(_base_frame_id,
-			       msg->header.frame_id,
-			       ros::Time(0), // _last_observation_time,
-			       laser_pose_t);
-#endif
+    if (!_has_laser_pose)
+    {
+      // Get laser pose on robot
+      tf::StampedTransform laser_pose_t;
+      try
+      {
+        _listener->waitForTransform(_base_frame_id, msg->header.frame_id,
+                                    _last_observation_time,
+                                    ros::Duration(0.5), ros::Duration(0.5), &error);
 
-    // Get laser pose on robot
-    tf::StampedTransform laser_pose_t;
-    try {
-      _listener->waitForTransform(_base_frame_id, msg->header.frame_id,
-				 _last_observation_time,
-				 ros::Duration(0.5), ros::Duration(0.5), &error);
-
-      if (_tf_timecheck)
+        if (_tf_timecheck)
           _listener->lookupTransform(_base_frame_id, msg->header.frame_id,
-				 _last_observation_time,
-				 laser_pose_t);
-      else
+                                     _last_observation_time,
+                                     laser_pose_t);
+        else
           _listener->lookupTransform(_base_frame_id, msg->header.frame_id,
-				 ros::Time(0),
-				 laser_pose_t);
+                                     ros::Time(0),
+                                     laser_pose_t);
+        _laser_pose = convertPose2D(laser_pose_t);
+        ROS_INFO("Got laser pose transform: [%f, %f, %f]", _laser_pose.x(), _laser_pose.y(), _laser_pose.z());
+        _has_laser_pose = true;
+      }
+      catch (tf::TransformException ex)
+      {
+        ROS_ERROR("Laser pose transform: %s", ex.what());
+      }
     }
-    catch (tf::TransformException ex){
-      ROS_ERROR("Laser pose transform: %s",ex.what());
-    }
-    Eigen::Vector3f laser_pose = convertPose2D(laser_pose_t);
-
-
-#if 0
-    // odometry
-    if (! _listener->waitForTransform (_odom_frame_id,
-				       _base_frame_id,
-				       _last_observation_time,
-				       ros::Duration(0.5),
-				       ros::Duration(0.5),
-				       &error)) {
-      //cerr << "ROSLocalizer: transform error from " << _odom_frame_id << " to " << _base_frame_id << " : " << error << endl;
-      //return;
-    }
-    tf::StampedTransform odom_pose_t;
-    _listener->lookupTransform(_odom_frame_id,
-			       _base_frame_id,
-			       ros::Time(0), // _last_observation_time,
-			       odom_pose_t);
-#endif
 
     // Get odometry pose
     tf::StampedTransform odom_pose_t;
@@ -168,20 +139,6 @@ namespace srrg_localizer2d_ros{
     }
     Eigen::Vector3f odom_pose = convertPose2D(odom_pose_t);
 
-
-#if 0
-// LI what's for???
-    if (! _listener->waitForTransform (_base_frame_id,
-				       msg->header.frame_id,
-				       _last_observation_time,
-				       ros::Duration(0.5),
-				       ros::Duration(0.5),
-				       &error)) {
-      cerr << "error: " << error << endl;
-      return;
-    }
-#endif
-
     std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 
     double t0=getTime();
@@ -195,7 +152,7 @@ namespace srrg_localizer2d_ros{
     _old_odom_pose=odom_pose;
 
     Vector2fVector endpoints(msg->ranges.size());
-    rangesToEndpoints(endpoints, laser_pose, msg);
+    rangesToEndpoints(endpoints, _laser_pose, msg);
     bool updated = update(endpoints);
 
     // std::cerr << "  -- localizer updated: " << updated << std::endl;

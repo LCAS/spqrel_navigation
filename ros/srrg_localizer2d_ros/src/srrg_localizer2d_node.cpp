@@ -75,6 +75,10 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   cerr << "[bool] _tf_timecheck: " << tf_timecheck << endl;
   localizer->setTFTimeCheck(tf_timecheck);
 
+  bool publish_tf;
+  private_nh.param("publish_tf", publish_tf, true);
+  cerr << "[bool] _publish_tf: " << publish_tf << endl;
+  localizer->setPublishTF(publish_tf);
 
   Eigen::Vector3d initial_pose(0,0,0);
   bool has_initial_pose=private_nh.hasParam("initial_pose_x");

@@ -66,7 +66,9 @@ namespace srrg_localizer2d_ros{
     void setInitialPose(float x, float y,float theta);
 
     //! Set flag to check for tf timing
-    void setTFTimeCheck(bool tf_timecheck);
+    inline void setTFTimeCheck(bool tf_timecheck) {_tf_timecheck = tf_timecheck;}
+    //! Set flag to publish tf between globalFrameId -> baseFrameId
+    inline void setPublishTF(bool publish_tf) {_publish_tf = publish_tf;}
 
     inline void setInvertedLaser(const bool inverted_laser) {_inverted_laser=inverted_laser;}
 
@@ -161,6 +163,7 @@ namespace srrg_localizer2d_ros{
     bool _set_pose;          //! set_pose mode (to be toggled with "s")
 
     bool _tf_timecheck;      //! if tf times are checked
+    bool _publish_tf;
 
     int _cnt_not_updated;    //! how monay cycles without updates
   };

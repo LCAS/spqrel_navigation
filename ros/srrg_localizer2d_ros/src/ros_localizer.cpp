@@ -33,10 +33,7 @@ namespace srrg_localizer2d_ros{
     _laser_pose.setZero();
     _tf_timecheck = true;
     _cnt_not_updated = 0;
-  }
-
-  void ROSLocalizer::setTFTimeCheck(bool tf_timecheck) {
-    _tf_timecheck = tf_timecheck;
+    _publish_tf = true;
   }
 
   void ROSLocalizer::initGUI(){
@@ -443,17 +440,15 @@ namespace srrg_localizer2d_ros{
 
       throw std::runtime_error("Dude, you are trying to send a nan transform");
     }
-    tf::Transform tmp_tf(tf::createQuaternionFromYaw(delta_map_odom.z()),
-			 tf::Vector3(delta_map_odom.x(),
-				     delta_map_odom.y(),
-				     0.0));
 
-    tf::StampedTransform map_to_odom(tmp_tf,
-				     _last_observation_time,
-				     _global_frame_id, _odom_frame_id);
+    if (_publish_tf){
+        tf::Transform tmp_tf(tf::createQuaternionFromYaw(delta_map_odom.z()),
+                            tf::Vector3(delta_map_odom.x(), delta_map_odom.y(), 0.0));
 
-    _broadcaster->sendTransform(map_to_odom);
+        tf::StampedTransform map_to_odom(tmp_tf, _last_observation_time, _global_frame_id, _odom_frame_id);
 
+        _broadcaster->sendTransform(map_to_odom);
+    }
 
   }
 

@@ -100,6 +100,12 @@ namespace srrg_localizer2d {
     //! param@ control: the motion
     void predict(const Eigen::Vector3f control);
 
+    //! integrates a motion with a specific covariance
+    //! param@ control: the motion
+    //! param@ covariance: motion noise
+    void predict(const Eigen::Vector3f control, const Eigen::Matrix3f& covariance);
+
+
     //! integrates an observation
     //! param@ observation: the <x,y> endpoints of the valid laser beams (no maxrange)
     //! returns true if the update was not performed (the robot has not moved enough)

@@ -161,6 +161,12 @@ namespace srrg_localizer2d {
     _cumulative_rotation+=fabs(control[2]);
   }
 
+  void LocalizationFilter::predict(const Eigen::Vector3f control, const Eigen::Matrix3f& covariance) {
+    setNoiseCoeffs(covariance);
+    predict(control);
+  }
+
+
 
   //! uniform resampling algorithm
   //! indices: the indices of the particles that survive after resampling

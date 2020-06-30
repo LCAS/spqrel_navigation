@@ -12,10 +12,15 @@
 #include "geometry_msgs/PoseArray.h"
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/GetMap.h"
+#include "nav_msgs/Odometry.h"
 #include "std_srvs/Empty.h"
 //#include "srrg_types/defs.h"
 #include "spqrel_navigation/LocalizerRanges.h"
 #include "localization_filter.h"
+
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
 
 namespace srrg_localizer2d_ros{
 
@@ -57,7 +62,7 @@ namespace srrg_localizer2d_ros{
 
     //! call this when all is in place, AND the map is loaded (either via direct setMap function or
     //! by calling the requestMap service)
-    void subscribeCallbacks(const std::string& laser_topic="/base_scan");
+    void subscribeCallbacks(const std::string& laser_topic="/base_scan", const std::string& odom_topic="/odom");
 
     //! requests a map via rpc
     void requestMap();
@@ -71,12 +76,14 @@ namespace srrg_localizer2d_ros{
     inline void setPublishTF(bool publish_tf) {_publish_tf = publish_tf;}
 
     inline void setInvertedLaser(const bool inverted_laser) {_inverted_laser=inverted_laser;}
+    inline void setUseOdomTopic(const bool use_odom_topic) {_use_odom_topic=use_odom_topic;}
 
   protected:
 
     tf::TransformListener* _listener; //< listener object uset do compute the relative laser transform and to listen to odom
     tf::TransformBroadcaster* _broadcaster; //< used to send the transform map->odom
     std::string _laser_topic;   //< laser topic to be used for localization
+    std::string _odom_topic;    //< odom topic to be used for motion estimation
     std::string _odom_frame_id; //< odom frame id, used to compute the control of the filter
     std::string _base_frame_id; //< frame of the robot
     std::string _global_frame_id;  //< frame of the map
@@ -87,6 +94,7 @@ namespace srrg_localizer2d_ros{
     bool _has_laser_pose;
     bool _restarted; //<
     bool _inverted_laser;
+    bool _use_odom_topic;
 
     std::vector<double> _timers; //< holds the update time of the last n cycles
     size_t _last_timer_slot; // the current update cycle
@@ -94,6 +102,13 @@ namespace srrg_localizer2d_ros{
     float _forced_max_range; //< max range to use in localization
     float _squared_endpoint_distance; //< max distance betweem endpoints in the laser. The ones that are closer are suppressed
     ros::Subscriber _laser_sub; //< subscriber for laser messages
+    message_filters::Subscriber<sensor_msgs::LaserScan> _laser_sync_sub;
+    message_filters::Subscriber<nav_msgs::Odometry> _odom_sync_sub;
+    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan,nav_msgs::Odometry> LaserOdomSyncPolicy;
+    typedef message_filters::Synchronizer<LaserOdomSyncPolicy> Sync;
+    boost::shared_ptr<Sync> _sync;
+    void syncLaserOdomCallback(const sensor_msgs::LaserScan::ConstPtr &laser_msg, const nav_msgs::Odometry::ConstPtr &odom_msg);
+
     ros::Publisher _pose_pub;   //< publisher for the amcl_pose
     ros::Publisher _particlecloud_pub; //< publisher for the particles
     ros::Publisher _ranges_pub; //< localizer_ranges_publisher

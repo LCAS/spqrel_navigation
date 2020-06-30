@@ -2,9 +2,14 @@
 #include "srrg_ros_wrappers/ros_utils.h"
 #include "srrg_system_utils/system_utils.h"
 
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
 #include <iostream>
 #include <chrono>
 #include <ctime>
+
 namespace srrg_localizer2d_ros{
   using namespace std;
   using namespace spqrel_navigation;
@@ -34,6 +39,7 @@ namespace srrg_localizer2d_ros{
     _tf_timecheck = true;
     _cnt_not_updated = 0;
     _publish_tf = true;
+    _use_odom_topic = false;
   }
 
   void ROSLocalizer::initGUI(){
@@ -195,6 +201,124 @@ namespace srrg_localizer2d_ros{
     // std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
   }
 
+  void ROSLocalizer::syncLaserOdomCallback(const sensor_msgs::LaserScan::ConstPtr &laser_msg, const nav_msgs::Odometry::ConstPtr &odom_msg){
+    _last_observation_time = laser_msg->header.stamp;
+
+    std::string error;
+
+    if (!_has_laser_pose)
+    {
+      // Get laser pose on robot
+      tf::StampedTransform laser_pose_t;
+      try
+      {
+        _listener->waitForTransform(_base_frame_id, laser_msg->header.frame_id,
+                                    _last_observation_time,
+                                    ros::Duration(0.5), ros::Duration(0.5), &error);
+
+        if (_tf_timecheck)
+          _listener->lookupTransform(_base_frame_id, laser_msg->header.frame_id,
+                                     _last_observation_time,
+                                     laser_pose_t);
+        else
+          _listener->lookupTransform(_base_frame_id, laser_msg->header.frame_id,
+                                     ros::Time(0),
+                                     laser_pose_t);
+        _laser_pose = convertPose2D(laser_pose_t);
+        ROS_INFO("Got laser pose transform: [%f, %f, %f]", _laser_pose.x(), _laser_pose.y(), _laser_pose.z());
+        _has_laser_pose = true;
+      }
+      catch (tf::TransformException ex)
+      {
+        ROS_ERROR("Laser pose transform: %s", ex.what());
+      }
+    }
+
+    // Get odometry pose
+    Eigen::Vector3f odom_pose = Eigen::Vector3f(odom_msg->pose.pose.position.x,
+                                                odom_msg->pose.pose.position.y,
+                                                tf::getYaw(odom_msg->pose.pose.orientation));
+    double cx, cxy, cxtheta, cyx, cy, cytheta, cthetax, cthetay, ctheta;
+    cx = odom_msg->pose.covariance[0];
+    cxy = odom_msg->pose.covariance[1];
+    cxtheta = odom_msg->pose.covariance[5];
+    cyx = odom_msg->pose.covariance[6];
+    cy = odom_msg->pose.covariance[7];
+    cytheta = odom_msg->pose.covariance[11];
+    cthetax = odom_msg->pose.covariance[30];
+    cthetay = odom_msg->pose.covariance[31];
+    ctheta = odom_msg->pose.covariance[35];
+
+    Eigen::Matrix3f odom_cov;
+    odom_cov << cx, cxy, cxtheta,
+                cyx, cy, cytheta,
+                cthetax, cthetay, ctheta;
+
+    std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
+
+    double t0=getTime();
+    if (!_restarted) {
+      Eigen::Vector3f control=t2v(v2t(_old_odom_pose).inverse()*v2t(odom_pose));
+      predict(control, odom_cov); //!TODO: Should be relative cov.
+    } else {
+      _last_timer_slot=0;
+    }
+
+    _old_odom_pose=odom_pose;
+
+    Vector2fVector endpoints(laser_msg->ranges.size());
+    rangesToEndpoints(endpoints, _laser_pose, laser_msg);
+    bool updated = update(endpoints);
+
+    // std::cerr << "  -- localizer updated: " << updated << std::endl;
+
+    if (!updated) {
+        if (_cnt_not_updated<20) { // force localization update for 20 cycles
+            forceUpdate();
+            _cnt_not_updated++;
+        }
+    }
+    else
+        _cnt_not_updated = 0;
+
+    computeStats();
+    publishPose();
+    publishRanges();
+    // printf("seq: %d, ts:%.9lf, [%f %f %f] [%f %f %f]\n",
+    // 	   msg->header.seq,
+    // 	   _last_observation_time.toSec(),
+    // 	   odom_pose.x(),
+    // 	   odom_pose.y(),
+    // 	   odom_pose.z(),
+    // 	   _mean.x(),
+    // 	   _mean.y(),
+    // 	   _mean.z());
+
+    _force_redisplay|=updated;
+    if (_restarted || _force_redisplay)
+      publishParticles();
+    double t1=getTime();
+    _timers[_last_timer_slot]=t1-t0;
+    _last_timer_slot++;
+    if(_last_timer_slot>=_timers.size())
+      _last_timer_slot=0;
+
+    handleGUIDisplay();
+
+    _restarted=false;
+
+    handleGUIInput();
+    std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
+    int cycle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
+    // std::cerr << "Cycle " << cycle_ms << " ms" << std::endl << std::endl;
+
+
+
+  }
+
+
+
+
   void ROSLocalizer::handleGUIInput(){
     if (! _use_gui)
       return;
@@ -272,10 +396,18 @@ namespace srrg_localizer2d_ros{
 
   }
 
-  void ROSLocalizer::subscribeCallbacks(const std::string& laser_topic){
+  void ROSLocalizer::subscribeCallbacks(const std::string& laser_topic, const std::string& odom_topic){
     _has_laser_pose=false;
     _laser_topic=laser_topic;
-    _laser_sub=_nh.subscribe(_laser_topic, 10, &ROSLocalizer::laserCallback, this);
+    _odom_topic=odom_topic;
+    if (_use_odom_topic){
+      _odom_sync_sub.subscribe(_nh, _odom_topic, 1);
+      _laser_sync_sub.subscribe(_nh, _laser_topic, 1);
+      _sync.reset(new Sync(LaserOdomSyncPolicy(10), _laser_sync_sub, _odom_sync_sub));
+      _sync->registerCallback(boost::bind(&ROSLocalizer::syncLaserOdomCallback, this, _1, _2));
+    } else {
+      _laser_sub=_nh.subscribe(_laser_topic, 10, &ROSLocalizer::laserCallback, this);
+    }
     _initial_pose_sub = _nh.subscribe("initialpose", 2, &ROSLocalizer::setPoseCallback, this);
     _global_loc_srv = _nh.advertiseService("global_localization",
 					   &ROSLocalizer::globalLocalizationCallback,

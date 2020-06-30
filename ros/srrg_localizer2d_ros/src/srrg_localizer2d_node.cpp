@@ -57,6 +57,15 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   private_nh.param("laser_topic", laser_topic, std::string("base_scan"));
   cerr << "[string] _laser_topic: " << laser_topic << endl;
 
+  std::string odom_topic;
+  private_nh.param("odom_topic", odom_topic, std::string("odom"));
+  cerr << "[string] _odom_topic: " << odom_topic << endl;
+
+  bool use_odom_topic;
+  private_nh.param("use_odom_topic", use_odom_topic, false);
+  cerr << "[bool] _use_odom_topic: " << use_odom_topic << endl;
+  localizer->setUseOdomTopic(use_odom_topic);
+
   std::string static_map_service;
   private_nh.param("static_map_service", static_map_service, std::string("static_map"));
   cerr << "[string] _static_map_service: " << static_map_service << endl;

@@ -77,6 +77,7 @@ namespace srrg_localizer2d_ros{
 
     inline void setInvertedLaser(const bool inverted_laser) {_inverted_laser=inverted_laser;}
     inline void setUseOdomTopic(const bool use_odom_topic) {_use_odom_topic=use_odom_topic;}
+    inline void setCovScaleFactor(const float cov_scale_factor) {_cov_scale_factor=cov_scale_factor;}
 
   protected:
 
@@ -90,6 +91,8 @@ namespace srrg_localizer2d_ros{
     std::string _static_map_service;  //< name of the static_map service
 
     Eigen::Vector3f _old_odom_pose; //< stores the previous odom pose, used to compute the control
+    Eigen::Matrix3f _old_odom_cov; //< stores the previous odom pose, used to compute the control
+    float _cov_scale_factor;
     Eigen::Vector3f _laser_pose; //< stores the laser pose from the system
     bool _has_laser_pose;
     bool _restarted; //<

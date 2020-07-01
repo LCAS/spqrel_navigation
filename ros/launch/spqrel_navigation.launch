@@ -21,6 +21,7 @@
     <arg name="initial_pose_x" default="0.0" />
     <arg name="initial_pose_y" default="0.0" />
     <arg name="initial_pose_a" default="0.0" />
+    <arg name="cov_scale_factor" default="1.0" />
     <node name="spqrel_navigation" pkg="spqrel_navigation" type="srrg_localizer2d_node" output="screen">
         <param name="particles" value="$(arg particles)"/>
         <param name="max_range" value="$(arg max_range)"/>
@@ -42,6 +43,7 @@
         <param name="initial_pose_x" value="$(arg initial_pose_x)" />
         <param name="initial_pose_y" value="$(arg initial_pose_y)" />
         <param name="initial_pose_a" value="$(arg initial_pose_a)" />
+        <param name="cov_scale_factor" value="$(arg cov_scale_factor)" />
         <remap from="base_scan" to="$(arg laser_topic)"/>
         <remap from="odom" to="$(arg odom_topic)"/>
     </node>

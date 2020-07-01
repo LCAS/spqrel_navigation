@@ -23,6 +23,8 @@ namespace srrg_localizer2d_ros{
       _listener = new tf::TransformListener;
     _restarted = true;
     _old_odom_pose.setZero();
+    _old_odom_cov.setZero();
+    _cov_scale_factor = 1.0;
     _odom_frame_id = "/odom";
     _base_frame_id = "/base_link";
     _forced_max_range = 25;
@@ -239,12 +241,12 @@ namespace srrg_localizer2d_ros{
                                                 odom_msg->pose.pose.position.y,
                                                 tf::getYaw(odom_msg->pose.pose.orientation));
     double cx, cxy, cxtheta, cy, cytheta, ctheta;
-    cx = fabs(odom_msg->pose.covariance[0] + 1e-3);
-    cxy = fabs(odom_msg->pose.covariance[1] + 1e-3);
-    cxtheta = fabs(odom_msg->pose.covariance[5] + 1e-3);
-    cy = fabs(odom_msg->pose.covariance[7] + 1e-3);
-    cytheta = fabs(odom_msg->pose.covariance[11] + 1e-3);
-    ctheta = fabs(odom_msg->pose.covariance[35] + 1e-3);
+    cx = odom_msg->pose.covariance[0];
+    cxy = odom_msg->pose.covariance[1];
+    cxtheta = odom_msg->pose.covariance[5];
+    cy = odom_msg->pose.covariance[7];
+    cytheta = odom_msg->pose.covariance[11];
+    ctheta = odom_msg->pose.covariance[35];
 
     Eigen::Matrix3f odom_cov;
     odom_cov << cx, cxy, cxtheta,
@@ -256,12 +258,25 @@ namespace srrg_localizer2d_ros{
     double t0=getTime();
     if (!_restarted) {
       Eigen::Vector3f control=t2v(v2t(_old_odom_pose).inverse()*v2t(odom_pose));
-      predict(control, odom_cov); //!TODO: Should be relative cov.
+      
+      //Computing relative covariance between poses.
+      Eigen::Matrix3f J1, J2;
+      float ca = cos(_old_odom_pose[2]), sa = sin(_old_odom_pose[2]);
+      J1 << -ca, -sa, -sa*(odom_pose[0]-_old_odom_pose[0])+ca*(odom_pose[1]-_old_odom_pose[1]),
+             sa, -ca, -ca*(odom_pose[0]-_old_odom_pose[0])-sa*(odom_pose[1]-_old_odom_pose[1]),
+              0,   0, -1;
+      J2 <<  ca, sa, 0,
+            -sa, ca, 0,
+              0,  0, 1;  
+      Eigen::Matrix3f odom_cov_rel = J1*_old_odom_cov*J1.transpose() + J2*odom_cov*J2.transpose();
+
+      predict(control,  _cov_scale_factor*odom_cov_rel.cwiseAbs()); //!TODO: Should be relative cov.
     } else {
       _last_timer_slot=0;
     }
 
-    _old_odom_pose=odom_pose;
+    _old_odom_pose = odom_pose;
+    _old_odom_cov  = odom_cov;
 
     Vector2fVector endpoints(laser_msg->ranges.size());
     rangesToEndpoints(endpoints, _laser_pose, laser_msg);

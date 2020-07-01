@@ -238,21 +238,18 @@ namespace srrg_localizer2d_ros{
     Eigen::Vector3f odom_pose = Eigen::Vector3f(odom_msg->pose.pose.position.x,
                                                 odom_msg->pose.pose.position.y,
                                                 tf::getYaw(odom_msg->pose.pose.orientation));
-    double cx, cxy, cxtheta, cyx, cy, cytheta, cthetax, cthetay, ctheta;
-    cx = odom_msg->pose.covariance[0];
-    cxy = odom_msg->pose.covariance[1];
-    cxtheta = odom_msg->pose.covariance[5];
-    cyx = odom_msg->pose.covariance[6];
-    cy = odom_msg->pose.covariance[7];
-    cytheta = odom_msg->pose.covariance[11];
-    cthetax = odom_msg->pose.covariance[30];
-    cthetay = odom_msg->pose.covariance[31];
-    ctheta = odom_msg->pose.covariance[35];
+    double cx, cxy, cxtheta, cy, cytheta, ctheta;
+    cx = fabs(odom_msg->pose.covariance[0] + 1e-3);
+    cxy = fabs(odom_msg->pose.covariance[1] + 1e-3);
+    cxtheta = fabs(odom_msg->pose.covariance[5] + 1e-3);
+    cy = fabs(odom_msg->pose.covariance[7] + 1e-3);
+    cytheta = fabs(odom_msg->pose.covariance[11] + 1e-3);
+    ctheta = fabs(odom_msg->pose.covariance[35] + 1e-3);
 
     Eigen::Matrix3f odom_cov;
     odom_cov << cx, cxy, cxtheta,
-                cyx, cy, cytheta,
-                cthetax, cthetay, ctheta;
+                cxy, cy, cytheta,
+                cxtheta, cytheta, ctheta;
 
     std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 

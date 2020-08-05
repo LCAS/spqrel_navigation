@@ -110,6 +110,7 @@ namespace srrg_localizer2d {
     //! param@ observation: the <x,y> endpoints of the valid laser beams (no maxrange)
     //! returns true if the update was not performed (the robot has not moved enough)
     bool update(const srrg_core::Vector2fVector& observation);
+    bool update(const srrg_core::Vector2fVector& observation, const Eigen::Vector3f& gps_pose);
 
 
     //! returns the minimum translation of the robot between updates (meters)
@@ -223,6 +224,8 @@ namespace srrg_localizer2d {
 
     //robot configuration
     float _robot_radius;
+
+    Eigen::Vector3f _map_origin;    //< world coordinates of the upper left pixel
 
 
     // transition model

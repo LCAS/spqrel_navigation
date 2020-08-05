@@ -98,7 +98,8 @@ namespace srrg_localizer2d_ros{
     bool _restarted; //<
     bool _inverted_laser;
     bool _use_odom_topic;
-
+    bool _new_gps_pose;
+    
     std::vector<double> _timers; //< holds the update time of the last n cycles
     size_t _last_timer_slot; // the current update cycle
 
@@ -111,6 +112,10 @@ namespace srrg_localizer2d_ros{
     typedef message_filters::Synchronizer<LaserOdomSyncPolicy> Sync;
     boost::shared_ptr<Sync> _sync;
     void syncLaserOdomCallback(const sensor_msgs::LaserScan::ConstPtr &laser_msg, const nav_msgs::Odometry::ConstPtr &odom_msg);
+    ros::Subscriber _gps_sub;
+    void gpsCallback(const nav_msgs::Odometry::ConstPtr &gps_msg);
+    Eigen::Vector3f gps_pose_;
+
 
     ros::Publisher _pose_pub;   //< publisher for the amcl_pose
     ros::Publisher _particlecloud_pub; //< publisher for the particles
@@ -122,8 +127,6 @@ namespace srrg_localizer2d_ros{
 
     ros::NodeHandle& _nh;             //< global node handle
 
-
-    Eigen::Vector3f _map_origin;    //< world coordinates of the upper left pixel
 
     //! converts a range scan into a vector of regularized endpoints
     //! @param endpoints: a vector2fvector containing the cartesian

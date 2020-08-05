@@ -249,6 +249,66 @@ namespace srrg_localizer2d {
     return true;
   }
 
+  bool LocalizationFilter::update(const Vector2fVector& observation, const Eigen::Vector3f& gps_pose){
+    // refresh the last endpoints
+    _last_endpoints = observation; 
+ 
+    // if the platform did not move enough, do nothing
+    if (!_force_update && (_cumulative_rotation<_min_update_rotation &&
+    _cumulative_translation < _min_update_translation))
+      return 0;
+
+    _force_update = false;
+
+    //update
+    _cumulative_translation = 0;
+    _cumulative_rotation = 0;
+    _cumulative_likelihood = 0;
+    for (size_t i = 0; i<_particles.size(); i++) {
+      // compute the weight of each particle
+      float w = likelihood(_particles[i]._pose, observation);
+
+      Eigen::Isometry2f origin = v2t(_map_origin);
+      Eigen::Isometry2f iso = origin * v2t(_particles[i]._pose);
+
+      Eigen::Vector3f trel = t2v(iso.inverse() * v2t(gps_pose));
+      float distance_gps = trel.head<2>().norm();
+      float w_gps = exp(-distance_gps)+_min_weight;
+
+      // if the weight is 0 and replace the particle with a random one,
+      // otherwise assign a weight to a particle, based on the likelihood
+      if (w==0 && _particle_resetting) {
+        w=_min_weight;
+        _particles[i]._pose = sampleFromFreeSpace();
+      } 
+      _particles[i]._weight = w * w_gps;
+      _cumulative_likelihood += w * w_gps;
+    }
+    
+    if (_cumulative_likelihood < 0)
+      return false;
+
+    
+    // resample
+    int indices[_particles.size()];
+    double weights[_particles.size()];
+    for (size_t i = 0 ; i<_particles.size(); i++)
+      weights[i]=_particles[i]._weight;
+    resample_uniform(indices, weights, _particles.size());
+    if (_cumulative_likelihood==0) {
+       return true;
+    }
+    ParticleVector aux(_particles.size());
+    int* idx = indices;
+    for (size_t i=0; i<_particles.size(); i++){
+      aux[i]=_particles[*idx];
+      aux[i]._weight=1;
+      idx++;
+    }
+    _particles=aux;
+    return true;
+  }
+
   void LocalizationFilter::paintState(RGBImage& img, bool use_distance_map){
     if (! use_distance_map) {
       cvtColor(_map, img, CV_GRAY2BGR);

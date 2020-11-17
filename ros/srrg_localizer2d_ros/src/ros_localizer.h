@@ -62,7 +62,7 @@ namespace srrg_localizer2d_ros{
 
     //! call this when all is in place, AND the map is loaded (either via direct setMap function or
     //! by calling the requestMap service)
-    void subscribeCallbacks(const std::string& laser_topic="/base_scan", const std::string& odom_topic="/odom");
+    void subscribeCallbacks(const std::string& laser_topic="/base_scan", const std::string& odom_topic="/odom", const std::string& gps_topic="/gps");
 
     //! requests a map via rpc
     void requestMap();
@@ -77,7 +77,9 @@ namespace srrg_localizer2d_ros{
 
     inline void setInvertedLaser(const bool inverted_laser) {_inverted_laser=inverted_laser;}
     inline void setUseOdomTopic(const bool use_odom_topic) {_use_odom_topic=use_odom_topic;}
+    inline void setUseOdomCov(const bool use_odom_cov) {_use_odom_cov=use_odom_cov;}
     inline void setCovScaleFactor(const float cov_scale_factor) {_cov_scale_factor=cov_scale_factor;}
+    inline void setUseGPSTopic(const bool use_gps_topic) {_use_gps_topic=use_gps_topic;}
 
   protected:
 
@@ -89,7 +91,8 @@ namespace srrg_localizer2d_ros{
     std::string _base_frame_id; //< frame of the robot
     std::string _global_frame_id;  //< frame of the map
     std::string _static_map_service;  //< name of the static_map service
-
+    std::string _gps_topic;    //< gps topic to be used for estimation update
+    
     Eigen::Vector3f _old_odom_pose; //< stores the previous odom pose, used to compute the control
     Eigen::Matrix3f _old_odom_cov; //< stores the previous odom pose, used to compute the control
     float _cov_scale_factor;
@@ -98,6 +101,8 @@ namespace srrg_localizer2d_ros{
     bool _restarted; //<
     bool _inverted_laser;
     bool _use_odom_topic;
+    bool _use_odom_cov; //< use odometry covariance for particle propagation (only used if use_odom_topic is true)
+    bool _use_gps_topic;
     bool _new_gps_pose;
     
     std::vector<double> _timers; //< holds the update time of the last n cycles

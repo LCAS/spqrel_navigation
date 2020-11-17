@@ -42,7 +42,9 @@ namespace srrg_localizer2d_ros{
     _cnt_not_updated = 0;
     _publish_tf = true;
     _use_odom_topic = false;
+    _use_odom_cov = false;
     _new_gps_pose = false;
+    _use_gps_topic = false;
   }
 
   void ROSLocalizer::initGUI(){
@@ -125,7 +127,7 @@ namespace srrg_localizer2d_ros{
       }
     }
 
-    // Get odometry pose
+    // Get odometry pose from tf
     tf::StampedTransform odom_pose_t;
     try {
       _listener->waitForTransform(_odom_frame_id, _base_frame_id,
@@ -159,7 +161,13 @@ namespace srrg_localizer2d_ros{
 
     Vector2fVector endpoints(msg->ranges.size());
     rangesToEndpoints(endpoints, _laser_pose, msg);
-    bool updated = update(endpoints);
+    bool updated = false;
+    if (_use_gps_topic && _new_gps_pose){
+      updated = update(endpoints, gps_pose_);
+      _new_gps_pose = false;
+    } else {
+      updated = update(endpoints);
+    }
 
     // std::cerr << "  -- localizer updated: " << updated << std::endl;
 
@@ -245,7 +253,7 @@ namespace srrg_localizer2d_ros{
       }
     }
 
-    // Get odometry pose
+    // Get odometry pose from topic
     Eigen::Vector3f odom_pose = Eigen::Vector3f(odom_msg->pose.pose.position.x,
                                                 odom_msg->pose.pose.position.y,
                                                 tf::getYaw(odom_msg->pose.pose.orientation));
@@ -267,19 +275,23 @@ namespace srrg_localizer2d_ros{
     double t0=getTime();
     if (!_restarted) {
       Eigen::Vector3f control=t2v(v2t(_old_odom_pose).inverse()*v2t(odom_pose));
-      
-      //Computing relative covariance between poses.
-      Eigen::Matrix3f J1, J2;
-      float ca = cos(_old_odom_pose[2]), sa = sin(_old_odom_pose[2]);
-      J1 << -ca, -sa, -sa*(odom_pose[0]-_old_odom_pose[0])+ca*(odom_pose[1]-_old_odom_pose[1]),
-             sa, -ca, -ca*(odom_pose[0]-_old_odom_pose[0])-sa*(odom_pose[1]-_old_odom_pose[1]),
-              0,   0, -1;
-      J2 <<  ca, sa, 0,
-            -sa, ca, 0,
-              0,  0, 1;  
-      Eigen::Matrix3f odom_cov_rel = J1*_old_odom_cov*J1.transpose() + J2*odom_cov*J2.transpose();
+      if (_use_odom_cov){
+        //Computing relative covariance between poses.
+        Eigen::Matrix3f J1, J2;
+        float ca = cos(_old_odom_pose[2]), sa = sin(_old_odom_pose[2]);
+        J1 << -ca, -sa, -sa*(odom_pose[0]-_old_odom_pose[0])+ca*(odom_pose[1]-_old_odom_pose[1]),
+              sa, -ca, -ca*(odom_pose[0]-_old_odom_pose[0])-sa*(odom_pose[1]-_old_odom_pose[1]),
+                0,   0, -1;
+        J2 <<  ca, sa, 0,
+              -sa, ca, 0,
+                0,  0, 1;  
+        Eigen::Matrix3f odom_cov_rel = J1*_old_odom_cov*J1.transpose() + J2*odom_cov*J2.transpose();
 
-      predict(control,  _cov_scale_factor*odom_cov_rel.cwiseAbs()); //!TODO: Should be relative cov.
+        predict(control,  _cov_scale_factor*odom_cov_rel.cwiseAbs()); //!TODO: Should be relative cov.
+      } else {
+        predict(control);
+      }
+      
     } else {    Eigen::Vector3f odom_pose = Eigen::Vector3f(odom_msg->pose.pose.position.x,
                                                 odom_msg->pose.pose.position.y,
                                                 tf::getYaw(odom_msg->pose.pose.orientation));
@@ -291,8 +303,8 @@ namespace srrg_localizer2d_ros{
 
     Vector2fVector endpoints(laser_msg->ranges.size());
     rangesToEndpoints(endpoints, _laser_pose, laser_msg);
-    bool updated;
-    if (_new_gps_pose){
+    bool updated = false;
+    if (_use_gps_topic && _new_gps_pose){
       updated = update(endpoints, gps_pose_);
       _new_gps_pose = false;
     } else {
@@ -425,20 +437,24 @@ namespace srrg_localizer2d_ros{
 
   }
 
-  void ROSLocalizer::subscribeCallbacks(const std::string& laser_topic, const std::string& odom_topic){
+  void ROSLocalizer::subscribeCallbacks(const std::string& laser_topic, const std::string& odom_topic, const std::string& gps_topic){
     _has_laser_pose=false;
     _laser_topic=laser_topic;
     _odom_topic=odom_topic;
+    _gps_topic =gps_topic;
     if (_use_odom_topic){
       _odom_sync_sub.subscribe(_nh, _odom_topic, 1);
       _laser_sync_sub.subscribe(_nh, _laser_topic, 1);
       _sync.reset(new Sync(LaserOdomSyncPolicy(10), _laser_sync_sub, _odom_sync_sub));
       _sync->registerCallback(boost::bind(&ROSLocalizer::syncLaserOdomCallback, this, _1, _2));
-      _gps_sub = _nh.subscribe("/odometry/gps/mod", 2, &ROSLocalizer::gpsCallback, this);
-
     } else {
       _laser_sub=_nh.subscribe(_laser_topic, 10, &ROSLocalizer::laserCallback, this);
     }
+
+    if (_use_gps_topic) {
+      _gps_sub = _nh.subscribe(_gps_topic, 2, &ROSLocalizer::gpsCallback, this);
+    }
+
     _initial_pose_sub = _nh.subscribe("initialpose", 2, &ROSLocalizer::setPoseCallback, this);
     _global_loc_srv = _nh.advertiseService("global_localization",
 					   &ROSLocalizer::globalLocalizationCallback,

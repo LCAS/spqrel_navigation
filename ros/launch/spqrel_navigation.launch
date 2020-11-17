@@ -14,6 +14,9 @@
     <arg name="laser_topic" default="base_scan"/>
     <arg name="odom_topic" default="odom"/>
     <arg name="use_odom_topic" default="false"/>
+    <arg name="use_odom_cov" default="false"/>
+    <arg name="gps_topic" default="gps"/>
+    <arg name="use_gps_topic" default="false"/>
     <arg name="static_map_service" default="static_map"/>
     <arg name="inverted_laser" default="false"/>
     <arg name="tf_timecheck" default="true"/>
@@ -36,6 +39,9 @@
         <param name="laser_topic" value="$(arg laser_topic)"/>
         <param name="odom_topic" value="$(arg odom_topic)"/>
         <param name="use_odom_topic" value="$(arg use_odom_topic)"/>
+        <param name="use_odom_cov" value="$(arg use_odom_cov)"/>
+        <param name="gps_topic" value="$(arg gps_topic)"/>
+        <param name="use_gps_topic" value="$(arg use_gps_topic)"/>
         <param name="static_map_service" value="$(arg static_map_service)"/>
         <param name="inverted_laser" value="$(arg inverted_laser)"/>
         <param name="tf_timecheck" value="$(arg tf_timecheck)"/>

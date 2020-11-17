@@ -66,10 +66,24 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   cerr << "[bool] _use_odom_topic: " << use_odom_topic << endl;
   localizer->setUseOdomTopic(use_odom_topic);
 
+  bool use_odom_cov;
+  private_nh.param("use_odom_cov", use_odom_cov, false);
+  cerr << "[bool] _use_odom_cov: " << use_odom_cov << endl;
+  localizer->setUseOdomCov(use_odom_cov);
+
   double cov_scale_factor;
   private_nh.param("cov_scale_factor", cov_scale_factor, 1.0);
   cerr << "[float] _cov_scale_factor: " << cov_scale_factor << endl;
   localizer->setCovScaleFactor(cov_scale_factor);
+
+  std::string gps_topic;
+  private_nh.param("gps_topic", gps_topic, std::string("gps"));
+  cerr << "[string] _gps_topic: " << gps_topic << endl;
+
+  bool use_gps_topic;
+  private_nh.param("use_gps_topic", use_gps_topic, false);
+  cerr << "[bool] _use_gps_topic: " << use_gps_topic << endl;
+  localizer->setUseGPSTopic(use_gps_topic);
 
   std::string static_map_service;
   private_nh.param("static_map_service", static_map_service, std::string("static_map"));

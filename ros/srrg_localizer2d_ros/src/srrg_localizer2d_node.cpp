@@ -54,11 +54,11 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   cerr << "[string] _global_frame_id: " << global_frame_id << endl;
 
   std::string laser_topic;
-  private_nh.param("laser_topic", laser_topic, std::string("base_scan"));
+  private_nh.param("laser_topic", laser_topic, std::string("/base_scan"));
   cerr << "[string] _laser_topic: " << laser_topic << endl;
 
   std::string odom_topic;
-  private_nh.param("odom_topic", odom_topic, std::string("odom"));
+  private_nh.param("odom_topic", odom_topic, std::string("/odom"));
   cerr << "[string] _odom_topic: " << odom_topic << endl;
 
   bool use_odom_topic;
@@ -77,7 +77,7 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
   localizer->setCovScaleFactor(cov_scale_factor);
 
   std::string gps_topic;
-  private_nh.param("gps_topic", gps_topic, std::string("gps"));
+  private_nh.param("gps_topic", gps_topic, std::string("/gps"));
   cerr << "[string] _gps_topic: " << gps_topic << endl;
 
   bool use_gps_topic;
@@ -129,7 +129,7 @@ void startLocalizer(ROSLocalizer* localizer, ros::NodeHandle& private_nh) {
     localizer->initGUI();
 
   localizer->setParticleResetting(dynamic_restart);
-  localizer->subscribeCallbacks(laser_topic);
+  localizer->subscribeCallbacks(laser_topic, odom_topic, gps_topic);
 
   if  (has_initial_pose){
     localizer->setInitialPose(float(initial_pose[0]),float(initial_pose[1]),float(initial_pose[2]));

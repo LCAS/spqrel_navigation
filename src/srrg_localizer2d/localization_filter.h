@@ -178,6 +178,14 @@ namespace srrg_localizer2d {
     //! sets the likelihood gain
     inline void setLikelihoodGain(float lg)  {_likelihood_gain = lg; }
 
+    //! gets the gain for the gps likelihood
+    //! the higher this value the more the distance between endpoint and obstacle
+    //! will result in a low likelihood;
+    inline float gpsLikelihoodGain() const {return _gps_likelihood_gain; }
+    
+    //! sets the likelihood gain
+    inline void setGpsLikelihoodGain(float lg)  {_gps_likelihood_gain = lg; }
+
     //! forces an update of the particles
     inline void forceUpdate()  { _force_update = true; }
 
@@ -250,6 +258,7 @@ namespace srrg_localizer2d {
     double likelihood(const Eigen::Vector3f& pose, const srrg_core::Vector2fVector& observation, float*endpoint_distances=0);
     std::vector<float> _endpoint_distances;
     float _likelihood_gain; 
+    float _gps_likelihood_gain;
 
     // variable to force one step of update of the particles
     bool _force_update;

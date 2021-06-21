@@ -20,16 +20,18 @@ namespace srrg_localizer2d {
 
     // transition_model
     _noise_coeffs << 
-      0.01, 0.0005, 0.0002,
-      0.0005, 0.0001, 0.0001,
-      0.001, 0.00001, 0.05;
+      0.01, 0.0005, 0.001,
+      0.0005, 0.001, 0.0001,
+      0.001, 0.0001, 0.025;
 
     // observation model
     _min_valid_points = 30;
     _min_weight=0.1;
     _particle_resetting = true;
     _likelihood_gain = 10;
+    _gps_likelihood_gain = 0.5;
     _force_update = false; 
+    
   }
 
 
@@ -273,7 +275,7 @@ namespace srrg_localizer2d {
 
       Eigen::Vector3f trel = t2v(iso.inverse() * v2t(gps_pose));
       float distance_gps = trel.head<2>().norm();
-      float w_gps = exp(-distance_gps)+_min_weight;
+      float w_gps = exp(-(distance_gps*distance_gps)*_gps_likelihood_gain) + _min_weight;
 
       // if the weight is 0 and replace the particle with a random one,
       // otherwise assign a weight to a particle, based on the likelihood

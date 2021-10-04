@@ -91,7 +91,11 @@ namespace srrg_planner {
     std::string full_path_map_image = std::string(dirname(strdup(mapname.c_str())))+"/"+map_image_name;
     std::cerr << "Opening image" << full_path_map_image << std::endl;
   
+    #if (CV_VERSION_MAJOR >= 4)
+    UnsignedCharImage map_image = cv::imread(full_path_map_image, cv::IMREAD_GRAYSCALE);
+    #else
     UnsignedCharImage map_image = cv::imread(full_path_map_image, CV_LOAD_IMAGE_GRAYSCALE);
+    #endif
 
     setMapFromImage(map_image, map_resolution, map_origin, occ_threshold, free_threshold);
   }

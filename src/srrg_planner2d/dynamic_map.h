@@ -17,9 +17,9 @@ namespace srrg_planner {
     };
     
     //Map indexed by cell to have unique cells. A unique index is assigned to go back and forth from grid to map pose
-    typedef std::map<Eigen::Vector2i, int, Vector2iComparator, Eigen::aligned_allocator< std::pair<Eigen::Vector2i,int> > > CellIndexMap;
-    typedef std::map<int, Eigen::Vector2f, std::less<int>, Eigen::aligned_allocator< std::pair<int,Eigen::Vector2f> > > PointIndexMap;
-    typedef std::map<Eigen::Vector2i, std::chrono::steady_clock::time_point, Vector2iComparator, Eigen::aligned_allocator< std::pair<Eigen::Vector2i,std::chrono::steady_clock::time_point> > > CellTimeMap; 
+    typedef std::map<Eigen::Vector2i, int, Vector2iComparator, Eigen::aligned_allocator< std::pair<const Eigen::Vector2i,int> > > CellIndexMap;
+    typedef std::map<int, Eigen::Vector2f, std::less<int>, Eigen::aligned_allocator< std::pair<const int,Eigen::Vector2f> > > PointIndexMap;
+    typedef std::map<Eigen::Vector2i, std::chrono::steady_clock::time_point, Vector2iComparator, Eigen::aligned_allocator< std::pair<const Eigen::Vector2i,std::chrono::steady_clock::time_point> > > CellTimeMap; 
     
   public:
     DynamicMap();

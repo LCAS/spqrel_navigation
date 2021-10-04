@@ -251,11 +251,19 @@ namespace srrg_localizer2d {
 
   void LocalizationFilter::paintState(RGBImage& img, bool use_distance_map){
     if (! use_distance_map) {
+      #if (CV_VERSION_MAJOR >= 4)
+      cvtColor(_map, img, cv::COLOR_GRAY2BGR);
+      #else
       cvtColor(_map, img, CV_GRAY2BGR);
+      #endif
     } else {
       UnsignedCharImage dest;
       _distance_map.toImage(dest);
-      cvtColor(dest, img , CV_GRAY2BGR);
+      #if (CV_VERSION_MAJOR >= 4)
+      cvtColor(_map, img, cv::COLOR_GRAY2BGR);
+      #else
+      cvtColor(_map, img, CV_GRAY2BGR);
+      #endif
     }
 
     float ires=1./_resolution;

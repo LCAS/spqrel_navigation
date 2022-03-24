@@ -165,6 +165,7 @@ namespace srrg_localizer2d_ros{
     if (!updated) {
         if (_cnt_not_updated<20) { // force localization update for 20 cycles
             forceUpdate();
+            updated = update(endpoints);
             _cnt_not_updated++;
         }
     }
@@ -287,6 +288,7 @@ namespace srrg_localizer2d_ros{
     if (!updated) {
         if (_cnt_not_updated<20) { // force localization update for 20 cycles
             forceUpdate();
+            updated = update(endpoints);
             _cnt_not_updated++;
         }
     }

@@ -398,7 +398,7 @@ namespace srrg_localizer2d {
       Eigen::Vector3f dp = _particles[i]._pose-_mean;
       dp[2]=fmod(dp[2], 2*M_PI);
       if (dp[2]>M_PI)
-        dp[2]-=M_PI;
+        dp[2]-=2*M_PI;
       _covariance+=dp*dp.transpose();
     }
     _covariance*=1./_particles.size();

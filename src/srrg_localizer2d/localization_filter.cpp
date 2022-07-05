@@ -334,7 +334,8 @@ namespace srrg_localizer2d {
     _covariance.setZero();
     for (size_t i = 0; i<_particles.size(); i++) {
       Eigen::Vector3f dp = _particles[i]._pose-_mean;
-      dp[2]=fmod(dp[2], 2*M_PI);
+      dp[2]=fmod(dp[2], 2*M_PI); // reduce the angle
+      dp[2]=fmod(dp[2] + 2*M_PI, 2*M_PI); // force the remainder to be positive, 0 <= angle < 360 
       if (dp[2]>M_PI)
         dp[2]-=2*M_PI;
       _covariance+=dp*dp.transpose();

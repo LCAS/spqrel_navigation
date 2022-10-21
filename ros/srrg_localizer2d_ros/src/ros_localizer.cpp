@@ -41,6 +41,7 @@ namespace srrg_localizer2d_ros{
     _tf_timecheck = true;
     _cnt_not_updated = 0;
     _publish_tf = true;
+    _last_published_time = ros::Time::now();
     _use_odom_topic = false;
   }
 
@@ -544,6 +545,10 @@ namespace srrg_localizer2d_ros{
   }
 
   void ROSLocalizer::publishPose(){
+
+    if (_last_published_time == _last_observation_time)
+      return;
+      
     geometry_msgs::PoseWithCovarianceStamped p;
     // Fill in the header
     p.header.frame_id = _global_frame_id;
@@ -595,7 +600,7 @@ namespace srrg_localizer2d_ros{
 
         _broadcaster->sendTransform(map_to_odom);
     }
-
+    _last_published_time = _last_observation_time;
   }
 
   double ROSLocalizer::cycleLatency() const {

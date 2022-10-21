@@ -129,6 +129,8 @@ namespace srrg_localizer2d_ros{
     ros::ServiceServer _global_loc_srv; //< service for global localization
     ros::Time _last_observation_time;   //< stores the last time an observation has been processed,
                                         //<to keep the timestamps of the transforms consistent
+    ros::Time _last_published_time; //< stores the last time the tf was published,
+                                    //< prevents from publishing a tf transform with same timestamp
 
     ros::NodeHandle& _nh;             //< global node handle
 

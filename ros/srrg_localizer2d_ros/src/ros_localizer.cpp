@@ -70,6 +70,7 @@ namespace srrg_localizer2d_ros{
     std::vector<float> ranges = msg->ranges;
     if (_inverted_laser){
       std::reverse(ranges.begin(), ranges.end());
+      angle = -msg->angle_max-msg->angle_increment;
     }
 
     for (size_t i=0; i<ranges.size(); i++){
